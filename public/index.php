@@ -92,16 +92,49 @@ try {
     );
     
     $output = $result->toArray();
-} catch (\Exception $e) {
-    $output = [
-        'errors' => [
-            [
-                'message' => $e->getMessage(),
-                'locations' => [],
-                'path' => []
-            ]
-        ]
+} catch (PDOException $e) { // Catch PDOExceptions specifically
+    $errorDetails = [
+        'message' => 'Database operation failed: ' . $e->getMessage(),
+        'code' => $e->getCode(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+        'trace' => $e->getTraceAsString(), // Include trace for debugging
     ];
+    if (ini_get('display_errors')) {
+        $output = ['errors' => [$errorDetails]];
+    } else {
+        $output = ['errors' => [['message' => 'Internal server error (DB)']]]; // Generic for production
+    }
+    // Log the detailed error regardless of display_errors setting
+    error_log('PDOException: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+
+} catch (\GraphQL\Error\Error $e) { // Catch GraphQL specific errors
+    $output = ['errors' => $e->jsonSerialize()];
+    // Log GraphQL user-facing errors if needed, though they are usually less critical for backend debugging
+    error_log('GraphQL Error: ' . $e->getMessage());
+
+} catch (\Exception $e) {
+    $errorDetails = [
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+    ];
+    if (ini_get('display_errors')) {
+        // Add trace for general exceptions too when display_errors is on
+        $errorDetails['trace'] = $e->getTraceAsString();
+        $output = ['errors' => [$errorDetails]];
+    } else {
+        $output = [
+            'errors' => [
+                [
+                    'message' => 'Internal server error',
+                    'extensions' => ['category' => 'internal'] // Keep original extension format
+                ]
+            ]
+        ];
+    }
+    // Log the detailed general error
+    error_log('General Exception: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
 }
 
 // Return the result
