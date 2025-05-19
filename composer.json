@@ -1,0 +1,15 @@
+{
+    "name": "tegas/dl4all_cbt_backend",
+    "description": "Backend for DL4ALL CBT Platform",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "firebase/php-jwt": "^6.0",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}
