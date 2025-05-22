@@ -4,13 +4,20 @@
 
 // Include controllers and middleware
 require_once APP_ROOT . '/controllers/UserController.php';
+require_once APP_ROOT . '/controllers/SubjectController.php';
+require_once APP_ROOT . '/controllers/TopicController.php';
+require_once APP_ROOT . '/controllers/QuestionController.php';
+require_once APP_ROOT . '/controllers/ExamController.php';
+require_once APP_ROOT . '/controllers/ExamSubjectController.php';
+require_once APP_ROOT . '/controllers/StudentSessionController.php';
+require_once APP_ROOT . '/controllers/StudentAnswerController.php';
 require_once APP_ROOT . '/middleware/AuthMiddleware.php';
 
 // Database connection (assuming $pdo is available from index.php)
 global $pdo;
 
 // Get the request URI and script name
-$request_uri = $_SERVER['REQUEST_URI'];
+$request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
 $script_name = $_SERVER['SCRIPT_NAME'];
 
 // Remove query string from request URI
@@ -59,6 +66,13 @@ $routes = [
     // Add other routes here
     'GET api/users/profile' => ['controller' => 'UserController', 'method' => 'getProfile', 'middleware' => ['AuthMiddleware']],
 
+    // Exam routes
+    'POST api/exams' => ['controller' => 'ExamController', 'method' => 'create'],
+    'GET api/exams' => ['controller' => 'ExamController', 'method' => 'getAll'],
+    'GET api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'getById'],
+    'PUT api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'update'],
+    'DELETE api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'delete'],
+
     // Subject routes
     'POST api/subjects' => ['controller' => 'SubjectController', 'method' => 'create'],
     'GET api/subjects' => ['controller' => 'SubjectController', 'method' => 'getAll'],
@@ -79,6 +93,13 @@ $routes = [
     'GET api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'getById'],
     'PUT api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'update'],
     'DELETE api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'delete'],
+
+    // Exam Subject routes
+    'POST api/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'create'],
+    'GET api/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'getAll'],
+    'GET api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'getById'],
+    'PUT api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'update'],
+    'DELETE api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'delete'],
 
     // Student Session routes
     'POST api/student-sessions' => ['controller' => 'StudentSessionController', 'method' => 'create'],
@@ -144,26 +165,26 @@ if ($matched_route) {
         $request_data = json_decode(file_get_contents('php://input'), true);
 
         // Pass user data from middleware to controller if available
+        $args = $route_params; // Start with dynamic parameters
+
         if ($userData !== null) {
-            // This is a simplified way; a framework would handle this better.
-            // We'll pass user data as part of the request data or as a separate argument.
-            // For getProfile, we need the user ID, which is in $userData.
-            // Pass user data and request data/route params to the controller method.
-            // The controller method will need to handle the different argument types.
-            // For getProfile, we specifically need the user ID from $userData.
-            if ($methodName === 'getProfile' && isset($userData['user_id'])) {
-                $controller->$methodName($userData['user_id']);
-            } else {
-                // For other methods, pass user data and other parameters as needed
-                // This part might need further refinement depending on other controller methods
-                $controller->$methodName($userData, $request_data, $route_params);
-            }
+            // Add user data and request data for authenticated routes
+            $args[] = $userData;
+            $args[] = $request_data;
         } else {
-             // Call the controller method without user data, but with request data/route params
-            $controller->$methodName($request_data, $route_params);
+            // Add request data for non-authenticated routes
+            $args[] = $request_data;
         }
 
-    }
+        // Log arguments for debugging
+        error_log("Route Params: " . print_r($route_params, true));
+        error_log("Args: " . print_r($args, true));
+
+        // Call the controller method with the prepared arguments
+        $controller->$methodName(...$args);
+
+
+    } 
 } else {
     // Handle 404 Not Found
     http_response_code(404);

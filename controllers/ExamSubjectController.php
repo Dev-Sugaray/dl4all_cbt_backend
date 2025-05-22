@@ -79,36 +79,39 @@ class ExamSubjectController {
         }
     }
 
-    // Handle getting a single exam subject by ID
-    public function getById($examSubjectId) {
-        // Prepare and execute the SQL statement to retrieve a single exam subject by ID
-        $sql = "SELECT es.exam_subject_id, es.exam_id, e.exam_name, es.subject_id, s.subject_name, es.number_of_questions, es.time_limit_seconds, es.scoring_scheme FROM ExamSubjects es JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id WHERE es.exam_subject_id = :exam_subject_id LIMIT 1";
+    // Method to get a single Exam Subject by ID
+    public function getById($route_params) {
+        if (!isset($route_params[0])) {
+            ResponseHelper::send(400, ['error' => 'Missing exam subject ID.']);
+            return;
+        }
+
+        $exam_subject_id = $route_params[0];
+
+        $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es
+                JOIN Exams e ON es.exam_id = e.exam_id
+                JOIN Subjects s ON es.subject_id = s.subject_id
+                WHERE es.exam_subject_id = :exam_subject_id LIMIT 1";
 
         try {
             $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':exam_subject_id', $examSubjectId, PDO::PARAM_INT);
+            $stmt->bindParam(':exam_subject_id', $exam_subject_id, PDO::PARAM_INT);
             $stmt->execute();
 
-            $examSubject = $stmt->fetch();
+            $exam_subject = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($examSubject) {
-                // Return exam subject data
-                http_response_code(200); // OK
-                echo json_encode($examSubject);
+            if ($exam_subject) {
+                ResponseHelper::send(200, $exam_subject);
             } else {
-                // Exam subject not found
-                http_response_code(404); // Not Found
-                echo json_encode(['error' => 'Exam subject not found.']);
+                ResponseHelper::send(404, ['message' => 'Exam subject not found.']);
             }
-        } catch (\PDOException $e) {
-            // Log database errors
+        } catch (PDOException $e) {
             error_log("Database Error fetching exam subject by ID: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }
 
-    // Handle updating an exam subject
+    // Method to update an Exam Subject by ID
     public function update($route_params, $request_data) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam subject ID.']);
@@ -116,84 +119,64 @@ class ExamSubjectController {
         }
 
         $exam_subject_id = $route_params[0];
-        $data = $request_data;
 
-        // Basic input validation - check if any data is provided for update
-        if (empty($data)) {
-            ResponseHelper::send(400, ['error' => 'No update data provided.']);
+        // Build the update query dynamically based on provided data
+        $update_fields = [];
+        $allowed_fields = ['exam_id', 'subject_id', 'number_of_questions', 'time_limit_seconds', 'scoring_scheme'];
+        $bind_params = [':exam_subject_id' => $exam_subject_id];
+
+        foreach ($request_data as $key => $value) {
+            if (in_array($key, $allowed_fields)) {
+                $update_fields[] = "`{$key}` = :{$key}";
+                $bind_params[":{$key}"] = $value;
+            }
+        }
+
+        if (empty($update_fields)) {
+            ResponseHelper::send(400, ['error' => 'No valid fields provided for update.']);
             return;
         }
 
-        // Build the SQL query dynamically based on provided data
-        $set_clauses = [];
-        $params = [':exam_subject_id' => $exam_subject_id];
-
-        if (isset($data['exam_id'])) {
-            $set_clauses[] = 'exam_id = :exam_id';
-            $params[':exam_id'] = $data['exam_id'];
-        }
-        if (isset($data['subject_id'])) {
-            $set_clauses[] = 'subject_id = :subject_id';
-            $params[':subject_id'] = $data['subject_id'];
-        }
-        if (isset($data['number_of_questions'])) {
-            $set_clauses[] = 'number_of_questions = :number_of_questions';
-            $params[':number_of_questions'] = $data['number_of_questions'];
-        }
-        if (isset($data['time_limit_seconds'])) {
-            $set_clauses[] = 'time_limit_seconds = :time_limit_seconds';
-            $params[':time_limit_seconds'] = $data['time_limit_seconds'];
-        }
-        if (isset($data['scoring_scheme'])) {
-            $set_clauses[] = 'scoring_scheme = :scoring_scheme';
-            $params[':scoring_scheme'] = $data['scoring_scheme'];
-        }
-
-        // If no valid fields to update, return error
-        if (empty($set_clauses)) {
-             ResponseHelper::send(400, ['error' => 'No valid fields provided for update.']);
-             return;
-        }
-
-        $sql = "UPDATE ExamSubjects SET " . implode(', ', $set_clauses) . " WHERE exam_subject_id = :exam_subject_id";
+        $sql = "UPDATE ExamSubjects SET " . implode(', ', $update_fields) . " WHERE exam_subject_id = :exam_subject_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
 
-            // Bind parameters
-            foreach ($params as $key => $value) {
-                // Determine parameter type (simplified, could be more robust)
+            foreach ($bind_params as $param => $value) {
+                // Determine parameter type
                 $param_type = PDO::PARAM_STR;
-                if (is_int($value)) $param_type = PDO::PARAM_INT;
-                if (is_null($value)) $param_type = PDO::PARAM_NULL;
+                if (is_int($value)) {
+                    $param_type = PDO::PARAM_INT;
+                } elseif (is_bool($value)) {
+                     $param_type = PDO::PARAM_BOOL;
+                } elseif (is_null($value)) {
+                    $param_type = PDO::PARAM_NULL;
+                }
 
-                $stmt->bindParam($key, $params[$key], $param_type);
+                $stmt->bindParam($param, $bind_params[$param], $param_type);
             }
 
             if ($stmt->execute()) {
-                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
                     ResponseHelper::send(200, ['message' => 'Exam subject updated successfully.']);
                 } else {
-                    // No rows affected, likely exam_subject_id not found
-                    ResponseHelper::send(404, ['error' => 'Exam subject not found.']);
+                    ResponseHelper::send(404, ['message' => 'Exam subject not found or no changes made.']);
                 }
+            } else {
+                ResponseHelper::send(500, ['error' => 'Exam subject update failed.']);
             }
         } catch (PDOException $e) {
-            // Handle database errors (e.g., duplicate exam_id, subject_id combination)
-            if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry or foreign key constraint)
-                 // Check if it's a duplicate entry for exam_id and subject_id
-                 // A more specific check might be needed depending on the exact error message or a unique index
-                ResponseHelper::send(409, ['error' => 'Exam subject combination already exists or invalid exam/subject ID.']);
+            // Check for duplicate entry error
+            if ($e->getCode() == '23000' && strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                ResponseHelper::send(409, ['error' => 'Duplicate entry. This exam-subject combination already exists.']);
             } else {
-                // Log other database errors
                 error_log("Database Error during exam subject update: " . $e->getMessage());
                 ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
             }
         }
     }
 
-    // Handle deleting an exam subject by ID
+    // Method to delete an Exam Subject by ID
     public function delete($route_params) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam subject ID.']);
@@ -209,16 +192,15 @@ class ExamSubjectController {
             $stmt->bindParam(':exam_subject_id', $exam_subject_id, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
-                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
                     ResponseHelper::send(200, ['message' => 'Exam subject deleted successfully.']);
                 } else {
-                    // No rows affected, likely exam_subject_id not found
-                    ResponseHelper::send(404, ['error' => 'Exam subject not found.']);
+                    ResponseHelper::send(404, ['message' => 'Exam subject not found.']);
                 }
+            } else {
+                ResponseHelper::send(500, ['error' => 'Exam subject deletion failed.']);
             }
         } catch (PDOException $e) {
-            // Log database errors
             error_log("Database Error during exam subject deletion: " . $e->getMessage());
             ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }

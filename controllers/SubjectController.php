@@ -77,9 +77,17 @@ class SubjectController {
     }
 
     // Handle getting a single subject by ID
-    public function getById($subjectId) {
+    public function getById($route_params, $request_data = null) {
         // Prepare and execute the SQL statement to retrieve a single subject by ID
         $sql = "SELECT subject_id, subject_name, subject_code, description FROM Subjects WHERE subject_id = :subject_id LIMIT 1";
+
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing subject ID.']);
+            return;
+        }
+
+        $subjectId = $route_params[0];
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -97,7 +105,7 @@ class SubjectController {
                 http_response_code(404); // Not Found
                 echo json_encode(['error' => 'Subject not found.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error fetching subject by ID: " . $e->getMessage());
             http_response_code(500);
@@ -105,52 +113,52 @@ class SubjectController {
         }
     }
 
-    // Handle updating a subject
-    public function update($subjectId, $data) {
-        // Basic input validation - check if any data is provided for update
-        if (empty($data)) {
+    // Handle updating an existing subject
+    public function update($route_params, $request_data) {
+        // Basic input validation
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing subject ID.']);
+            return;
+        }
+
+        $subjectId = $route_params[0];
+
+        if (!isset($request_data['subject_name']) && !isset($request_data['subject_code']) && !isset($request_data['description'])) {
             http_response_code(400);
             echo json_encode(['error' => 'No update data provided.']);
             return;
         }
 
-        // Build the SQL query dynamically based on provided data
-        $set_clauses = [];
+        $updates = [];
         $params = [':subject_id' => $subjectId];
 
-        if (isset($data['subject_name'])) {
-            $set_clauses[] = 'subject_name = :subject_name';
-            $params[':subject_name'] = $data['subject_name'];
+        if (isset($request_data['subject_name'])) {
+            $updates[] = 'subject_name = :subject_name';
+            $params[':subject_name'] = $request_data['subject_name'];
         }
-        if (isset($data['subject_code'])) {
-            $set_clauses[] = 'subject_code = :subject_code';
-            $params[':subject_code'] = $data['subject_code'];
+        if (isset($request_data['subject_code'])) {
+            $updates[] = 'subject_code = :subject_code';
+            $params[':subject_code'] = $request_data['subject_code'];
         }
-        if (isset($data['description'])) {
-            $set_clauses[] = 'description = :description';
-            $params[':description'] = $data['description'];
+        if (isset($request_data['description'])) {
+            $updates[] = 'description = :description';
+            $params[':description'] = $request_data['description'];
         }
 
-        // If no valid fields to update, return error
-        if (empty($set_clauses)) {
+        if (empty($updates)) {
              http_response_code(400);
-             echo json_encode(['error' => 'No valid fields provided for update.']);
+             echo json_encode(['error' => 'No valid fields to update.']);
              return;
         }
 
-        $sql = "UPDATE Subjects SET " . implode(', ', $set_clauses) . " WHERE subject_id = :subject_id";
+        $sql = "UPDATE Subjects SET " . implode(', ', $updates) . " WHERE subject_id = :subject_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
 
-            // Bind parameters
             foreach ($params as $key => $value) {
-                // Determine parameter type (simplified, could be more robust)
-                $param_type = PDO::PARAM_STR;
-                if (is_int($value)) $param_type = PDO::PARAM_INT;
-                if (is_null($value)) $param_type = PDO::PARAM_NULL;
-
-                $stmt->bindParam($key, $params[$key], $param_type);
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
 
             if ($stmt->execute()) {
@@ -159,18 +167,17 @@ class SubjectController {
                     http_response_code(200); // OK
                     echo json_encode(['message' => 'Subject updated successfully.']);
                 } else {
-                    // No rows affected, likely subject_id not found
                     http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Subject not found.']);
+                    echo json_encode(['error' => 'Subject not found or no changes made.']);
                 }
             } else {
                 // Handle execution error
                 http_response_code(500);
                 echo json_encode(['error' => 'Subject update failed.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Handle database errors (e.g., duplicate subject name/code)
-             if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry)
+            if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry)
                 http_response_code(409); // 409 Conflict
                 echo json_encode(['error' => 'Subject name or code already exists.']);
             } else {
@@ -182,8 +189,17 @@ class SubjectController {
         }
     }
 
-    // Handle deleting a subject
-    public function delete($subjectId) {
+    // Handle deleting an existing subject
+    public function delete($route_params, $request_data = null) {
+        // Basic input validation
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing subject ID.']);
+            return;
+        }
+
+        $subjectId = $route_params[0];
+
         // Prepare and execute the SQL statement to delete the subject
         $sql = "DELETE FROM Subjects WHERE subject_id = :subject_id";
 
@@ -192,12 +208,11 @@ class SubjectController {
             $stmt->bindParam(':subject_id', $subjectId, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
-                 // Check if any rows were affected
+                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK (or 204 No Content)
+                    http_response_code(200); // OK or 204 No Content
                     echo json_encode(['message' => 'Subject deleted successfully.']);
                 } else {
-                    // No rows affected, likely subject_id not found
                     http_response_code(404); // Not Found
                     echo json_encode(['error' => 'Subject not found.']);
                 }
@@ -206,7 +221,7 @@ class SubjectController {
                 http_response_code(500);
                 echo json_encode(['error' => 'Subject deletion failed.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error during subject deletion: " . $e->getMessage());
             http_response_code(500);

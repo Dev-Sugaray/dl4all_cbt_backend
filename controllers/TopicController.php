@@ -78,9 +78,17 @@ class TopicController {
     }
 
     // Handle getting a single topic by ID
-    public function getById($topicId) {
+    public function getById($route_params, $request_data = null) {
         // Prepare and execute the SQL statement to retrieve a single topic by ID
         $sql = "SELECT t.topic_id, t.subject_id, s.subject_name, t.topic_name, t.description FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id WHERE t.topic_id = :topic_id LIMIT 1";
+
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing topic ID.']);
+            return;
+        }
+
+        $topicId = $route_params[0];
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -98,7 +106,7 @@ class TopicController {
                 http_response_code(404); // Not Found
                 echo json_encode(['error' => 'Topic not found.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error fetching topic by ID: " . $e->getMessage());
             http_response_code(500);
@@ -107,51 +115,51 @@ class TopicController {
     }
 
     // Handle updating a topic
-    public function update($topicId, $data) {
-        // Basic input validation - check if any data is provided for update
-        if (empty($data)) {
+    public function update($route_params, $request_data) {
+        // Basic input validation
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing topic ID.']);
+            return;
+        }
+
+        $topicId = $route_params[0];
+
+        if (!isset($request_data['subject_id']) && !isset($request_data['topic_name']) && !isset($request_data['description'])) {
             http_response_code(400);
             echo json_encode(['error' => 'No update data provided.']);
             return;
         }
 
-        // Build the SQL query dynamically based on provided data
-        $set_clauses = [];
+        $updates = [];
         $params = [':topic_id' => $topicId];
 
-        if (isset($data['subject_id'])) {
-            $set_clauses[] = 'subject_id = :subject_id';
-            $params[':subject_id'] = $data['subject_id'];
+        if (isset($request_data['subject_id'])) {
+            $updates[] = 'subject_id = :subject_id';
+            $params[':subject_id'] = $request_data['subject_id'];
         }
-        if (isset($data['topic_name'])) {
-            $set_clauses[] = 'topic_name = :topic_name';
-            $params[':topic_name'] = $data['topic_name'];
+        if (isset($request_data['topic_name'])) {
+            $updates[] = 'topic_name = :topic_name';
+            $params[':topic_name'] = $request_data['topic_name'];
         }
-        if (isset($data['description'])) {
-            $set_clauses[] = 'description = :description';
-            $params[':description'] = $data['description'];
+        if (isset($request_data['description'])) {
+            $updates[] = 'description = :description';
+            $params[':description'] = $request_data['description'];
         }
 
-        // If no valid fields to update, return error
-        if (empty($set_clauses)) {
+        if (empty($updates)) {
              http_response_code(400);
-             echo json_encode(['error' => 'No valid fields provided for update.']);
+             echo json_encode(['error' => 'No valid fields to update.']);
              return;
         }
 
-        $sql = "UPDATE Topics SET " . implode(', ', $set_clauses) . " WHERE topic_id = :topic_id";
+        $sql = "UPDATE Topics SET " . implode(', ', $updates) . " WHERE topic_id = :topic_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
 
-            // Bind parameters
             foreach ($params as $key => $value) {
-                // Determine parameter type (simplified, could be more robust)
-                $param_type = PDO::PARAM_STR;
-                if (is_int($value)) $param_type = PDO::PARAM_INT;
-                if (is_null($value)) $param_type = PDO::PARAM_NULL;
-
-                $stmt->bindParam($key, $params[$key], $param_type);
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
 
             if ($stmt->execute()) {
@@ -160,18 +168,17 @@ class TopicController {
                     http_response_code(200); // OK
                     echo json_encode(['message' => 'Topic updated successfully.']);
                 } else {
-                    // No rows affected, likely topic_id not found
                     http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Topic not found.']);
+                    echo json_encode(['error' => 'Topic not found or no changes made.']);
                 }
             } else {
                 // Handle execution error
                 http_response_code(500);
                 echo json_encode(['error' => 'Topic update failed.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Handle database errors (e.g., foreign key constraint or duplicate topic name for a subject)
-             if ($e->getCode() === '23000') { // Integrity constraint violation
+            if ($e->getCode() === '23000') { // Integrity constraint violation
                 http_response_code(409); // 409 Conflict
                 echo json_encode(['error' => 'Topic name already exists for this subject or invalid subject ID.']);
             } else {
@@ -184,7 +191,16 @@ class TopicController {
     }
 
     // Handle deleting a topic
-    public function delete($topicId) {
+    public function delete($route_params, $request_data = null) {
+        // Basic input validation
+        if (!isset($route_params[0])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing topic ID.']);
+            return;
+        }
+
+        $topicId = $route_params[0];
+
         // Prepare and execute the SQL statement to delete the topic
         $sql = "DELETE FROM Topics WHERE topic_id = :topic_id";
 
@@ -193,12 +209,11 @@ class TopicController {
             $stmt->bindParam(':topic_id', $topicId, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
-                 // Check if any rows were affected
+                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK (or 204 No Content)
+                    http_response_code(200); // OK or 204 No Content
                     echo json_encode(['message' => 'Topic deleted successfully.']);
                 } else {
-                    // No rows affected, likely topic_id not found
                     http_response_code(404); // Not Found
                     echo json_encode(['error' => 'Topic not found.']);
                 }
@@ -207,7 +222,7 @@ class TopicController {
                 http_response_code(500);
                 echo json_encode(['error' => 'Topic deletion failed.']);
             }
-        } catch (\PDOException $e) {
+        } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error during topic deletion: " . $e->getMessage());
             http_response_code(500);
