@@ -1,8 +1,5 @@
 <?php
 
-require_once APP_ROOT . '/config/database.php';
-require_once APP_ROOT . '/utils/ResponseHelper.php';
-
 class StudentSessionController {
     private $pdo;
 
@@ -10,20 +7,20 @@ class StudentSessionController {
         $this->pdo = $pdo;
     }
 
-    // Method to create a new Student Session
-    public function create($request_data) {
+    // Handle creating a new student session
+    public function create($data) {
         // Basic input validation
-        if (!isset($request_data['user_id'], $request_data['exam_subject_id'], $request_data['total_questions'])) {
+        if (!isset($data['user_id'], $data['exam_subject_id'], $data['total_questions'])) {
             ResponseHelper::send(400, ['error' => 'Missing required fields (user_id, exam_subject_id, total_questions).']);
             return;
         }
 
-        $user_id = $request_data['user_id'];
-        $exam_subject_id = $request_data['exam_subject_id'];
-        $total_questions = $request_data['total_questions'];
-        $time_allocated_seconds = $request_data['time_allocated_seconds'] ?? null;
-        $session_type = $request_data['session_type'] ?? 'practice';
-        $settings = isset($request_data['settings']) ? json_encode($request_data['settings']) : null;
+        $user_id = $data['user_id'];
+        $exam_subject_id = $data['exam_subject_id'];
+        $total_questions = $data['total_questions'];
+        $time_allocated_seconds = $data['time_allocated_seconds'] ?? null;
+        $session_type = $data['session_type'] ?? 'practice';
+        $settings = isset($data['settings']) ? json_encode($data['settings']) : null;
 
         // Prepare and execute the SQL statement to insert the new student session
         $sql = "INSERT INTO StudentSessions (user_id, exam_subject_id, total_questions, time_allocated_seconds, session_type, settings) VALUES (:user_id, :exam_subject_id, :total_questions, :time_allocated_seconds, :session_type, :settings)";
@@ -51,29 +48,45 @@ class StudentSessionController {
         }
     }
 
-    // Method to get all Student Sessions
-    public function getAll() {
-        $sql = "SELECT ss.*, u.full_name, es.exam_subject_id FROM StudentSessions ss
-                JOIN Users u ON ss.user_id = u.user_id
-                JOIN ExamSubjects es ON ss.exam_subject_id = es.exam_subject_id";
-
+    // Handle retrieving all student sessions with pagination
+    public function getAll($route_params = null, $request_data = null) {
         try {
-            $stmt = $this->pdo->query($sql);
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'StudentSessions', null, [], $page, $limit);
+
+            // Fetch student sessions with LIMIT and OFFSET
+            $sql = "SELECT ss.*, u.full_name as student_name, e.exam_name, s.subject_name FROM StudentSessions ss JOIN Users u ON ss.user_id = u.user_id JOIN ExamSubjects es ON ss.exam_subject_id = es.exam_subject_id JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id LIMIT :limit OFFSET :offset";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+            $stmt->execute();
             $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            if ($sessions) {
-                ResponseHelper::send(200, $sessions);
-            } else {
-                ResponseHelper::send(404, ['message' => 'No student sessions found.']);
-            }
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
+
+            // Combine data and metadata
+            $response_data = [
+                'data' => $sessions,
+                'meta' => $paginationMeta['pagination']
+            ];
+
+            ResponseHelper::send(200, $response_data);
+
         } catch (PDOException $e) {
-            error_log("Database Error fetching all student sessions: " . $e->getMessage());
-            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
+            // Handle database errors
+            error_log("Database Error during student session retrieval: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during student session retrieval.']);
         }
     }
 
-    // Method to get a single Student Session by ID
-    public function getById($route_params) {
+    // Handle retrieving a single student session by ID
+    public function getById($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing session ID.']);
             return;
@@ -81,10 +94,7 @@ class StudentSessionController {
 
         $session_id = $route_params[0];
 
-        $sql = "SELECT ss.*, u.full_name, es.exam_subject_id FROM StudentSessions ss
-                JOIN Users u ON ss.user_id = u.user_id
-                JOIN ExamSubjects es ON ss.exam_subject_id = es.exam_subject_id
-                WHERE ss.session_id = :session_id LIMIT 1";
+        $sql = "SELECT ss.*, u.full_name, es.exam_subject_id FROM StudentSessions ss\n                JOIN Users u ON ss.user_id = u.user_id\n                JOIN ExamSubjects es ON ss.exam_subject_id = es.exam_subject_id\n                WHERE ss.session_id = :session_id LIMIT 1";
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -104,7 +114,7 @@ class StudentSessionController {
         }
     }
 
-    // Method to update a Student Session by ID
+    // Handle updating an existing student session
     public function update($route_params, $request_data) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing session ID.']);
@@ -147,7 +157,9 @@ class StudentSessionController {
                 }
                  // Special handling for JSON settings
                 if ($param === ':settings' && !is_null($value)) {
-                    $value = json_encode($value);
+                    // Ensure the value is a string (JSON) before binding as STR
+                    $value = is_array($value) || is_object($value) ? json_encode($value) : $value;
+                    $param_type = PDO::PARAM_STR;
                 }
 
                 $stmt->bindParam($param, $bind_params[$param], $param_type);
@@ -168,8 +180,8 @@ class StudentSessionController {
         }
     }
 
-    // Method to delete a Student Session by ID
-    public function delete($route_params) {
+    // Handle deleting an existing student session
+    public function delete($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing session ID.']);
             return;

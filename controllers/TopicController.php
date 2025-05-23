@@ -55,29 +55,46 @@ class TopicController {
         }
     }
 
-    // Handle getting all topics
-    public function getAll() {
-        // Prepare and execute the SQL statement to retrieve all topics
-        $sql = "SELECT t.topic_id, t.subject_id, s.subject_name, t.topic_name, t.description FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id";
-
+    // Handle retrieving all topics with pagination
+    public function getAll($route_params = null, $request_data = null) {
         try {
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'Topics', null, [], $page, $limit);
+
+            // Fetch topics with LIMIT and OFFSET
+            $sql = "SELECT t.*, s.subject_name FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id LIMIT :limit OFFSET :offset";
             $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
             $stmt->execute();
+            $topics = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $topics = $stmt->fetchAll();
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
 
-            // Return list of topics
+            // Combine data and metadata
+            $response_data = [
+                'data' => $topics,
+                'meta' => $paginationMeta['pagination']
+            ];
+
             http_response_code(200); // OK
-            echo json_encode($topics);
-        } catch (\PDOException $e) {
-            // Log database errors
-            error_log("Database Error fetching all topics: " . $e->getMessage());
+            echo json_encode($response_data);
+
+        } catch (PDOException $e) {
+            // Handle database errors
+            error_log("Database Error during topic retrieval: " . $e->getMessage());
             http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            echo json_encode(['error' => 'An internal server error occurred during topic retrieval.']);
         }
     }
 
-    // Handle getting a single topic by ID
+    // Handle retrieving a single topic by ID
     public function getById($route_params, $request_data = null) {
         // Prepare and execute the SQL statement to retrieve a single topic by ID
         $sql = "SELECT t.topic_id, t.subject_id, s.subject_name, t.topic_name, t.description FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id WHERE t.topic_id = :topic_id LIMIT 1";

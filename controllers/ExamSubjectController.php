@@ -1,7 +1,5 @@
 <?php
 
-// require_once APP_ROOT . '/config/database.php'; // Include database connection
-
 class ExamSubjectController {
     private $pdo;
 
@@ -9,12 +7,11 @@ class ExamSubjectController {
         $this->pdo = $pdo;
     }
 
-    // Handle creating a new exam subject
+    // Handle creating a new ExamSubject
     public function create($data) {
         // Basic input validation
         if (!isset($data['exam_id'], $data['subject_id'], $data['number_of_questions'], $data['time_limit_seconds'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing required fields (exam_id, subject_id, number_of_questions, time_limit_seconds).']);
+            ResponseHelper::send(400, ['error' => 'Missing required fields (exam_id, subject_id, number_of_questions, time_limit_seconds).']);
             return;
         }
 
@@ -37,50 +34,64 @@ class ExamSubjectController {
 
             if ($stmt->execute()) {
                 // Exam subject creation successful
-                http_response_code(201); // 201 Created
-                echo json_encode(['message' => 'Exam subject created successfully.', 'exam_subject_id' => $this->pdo->lastInsertId()]);
+                ResponseHelper::send(201, ['message' => 'Exam subject created successfully.', 'exam_subject_id' => $this->pdo->lastInsertId()]);
             } else {
                 // Handle execution error (less likely with exceptions enabled)
-                http_response_code(500);
-                echo json_encode(['error' => 'Exam subject creation failed.']);
+                ResponseHelper::send(500, ['error' => 'Exam subject creation failed.']);
             }
         } catch (\PDOException $e) {
             // Handle database errors (e.g., duplicate exam_id, subject_id combination)
             if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry or foreign key constraint)
                  // Check if it's a duplicate entry for exam_id and subject_id
                  // A more specific check might be needed depending on the exact error message or a unique index
-                http_response_code(409); // 409 Conflict
-                echo json_encode(['error' => 'Exam subject combination already exists or invalid exam/subject ID.']);
+                ResponseHelper::send(409, ['error' => 'Exam subject combination already exists or invalid exam/subject ID.']);
             } else {
                 // Log other database errors
                 error_log("Database Error during exam subject creation: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'An internal server error occurred.']);
+                ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
             }
         }
     }
 
-    public function getAll() {
-        $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es
-                JOIN Exams e ON es.exam_id = e.exam_id
-                JOIN Subjects s ON es.subject_id = s.subject_id";
-
+    // Handle retrieving all ExamSubjects with pagination
+    public function getAll($route_params = null, $request_data = null) {
         try {
-            $stmt = $this->pdo->query($sql);
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'ExamSubjects', null, [], $page, $limit);
+
+            // Fetch ExamSubjects with LIMIT and OFFSET
+            $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id LIMIT :limit OFFSET :offset";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+            $stmt->execute();
             $examSubjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            if ($examSubjects) {
-                ResponseHelper::send(200, $examSubjects);
-            } else {
-                ResponseHelper::send(404, ['message' => 'No exam subjects found.']);
-            }
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
+
+            // Combine data and metadata
+            $response_data = [
+                'data' => $examSubjects,
+                'meta' => $paginationMeta['pagination']
+            ];
+
+            ResponseHelper::send(200, $response_data);
+
         } catch (PDOException $e) {
-            ResponseHelper::send(500, ['error' => 'Database error: ' . $e->getMessage()]);
+            // Handle database errors
+            error_log("Database Error during ExamSubject retrieval: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during ExamSubject retrieval.']);
         }
     }
 
-    // Method to get a single Exam Subject by ID
-    public function getById($route_params) {
+    // Handle retrieving a single ExamSubject by ID
+    public function getById($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam subject ID.']);
             return;
@@ -88,10 +99,7 @@ class ExamSubjectController {
 
         $exam_subject_id = $route_params[0];
 
-        $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es
-                JOIN Exams e ON es.exam_id = e.exam_id
-                JOIN Subjects s ON es.subject_id = s.subject_id
-                WHERE es.exam_subject_id = :exam_subject_id LIMIT 1";
+        $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es\n                JOIN Exams e ON es.exam_id = e.exam_id\n                JOIN Subjects s ON es.subject_id = s.subject_id\n                WHERE es.exam_subject_id = :exam_subject_id LIMIT 1";
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -177,7 +185,7 @@ class ExamSubjectController {
     }
 
     // Method to delete an Exam Subject by ID
-    public function delete($route_params) {
+    public function delete($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam subject ID.']);
             return;

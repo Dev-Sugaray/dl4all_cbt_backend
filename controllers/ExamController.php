@@ -51,27 +51,44 @@ class ExamController {
     }
 
     // Handle getting all exams
-    public function getAll() {
-        // Prepare and execute the SQL statement to retrieve all active exams
-        $sql = "SELECT exam_id, exam_name, exam_abbreviation, description, is_active, creation_date FROM Exams WHERE is_active = TRUE";
-
+    public function getAll($route_params = null, $request_data = null) {
         try {
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute();
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
 
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'Exams', null, [], $page, $limit);
+
+            // Fetch exams with LIMIT and OFFSET
+            $sql = "SELECT * FROM Exams LIMIT :limit OFFSET :offset";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+            $stmt->execute();
             $exams = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Return list of exams
-            ResponseHelper::send(200, $exams);
-        } catch (\PDOException $e) {
-            // Log database errors
-            error_log("Database Error fetching all exams: " . $e->getMessage());
-            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
+
+            // Combine data and metadata
+            $response_data = [
+                'data' => $exams,
+                'meta' => $paginationMeta['pagination']
+            ];
+
+            ResponseHelper::send(200, $response_data);
+
+        } catch (PDOException $e) {
+            // Handle database errors
+            error_log("Database Error during exam retrieval: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during exam retrieval.']);
         }
     }
 
     // Handle getting a single exam by ID
-    public function getById($route_params) {
+    public function getById($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam ID.']);
             return;
@@ -177,17 +194,17 @@ class ExamController {
         } catch (\PDOException $e) {
             // Handle database errors (e.g., duplicate exam name/abbreviation)
              if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry)
-                ResponseHelper::send(409, ['error' => 'Exam name or abbreviation already exists.']);
-            } else {
-                // Log other database errors
-                error_log("Database Error during exam update: " . $e->getMessage());
-                ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
-            }
-        }
-    }
+                 ResponseHelper::send(409, ['error' => 'Exam name or abbreviation already exists.']);
+             } else {
+                 // Log other database errors
+                 error_log("Database Error during exam update: " . $e->getMessage());
+                 ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
+             }
+         }
+     }
 
     // Handle deleting an exam (soft delete)
-    public function delete($route_params) {
+    public function delete($route_params, $request_data = null) {
         if (!isset($route_params[0])) {
             ResponseHelper::send(400, ['error' => 'Missing exam ID.']);
             return;

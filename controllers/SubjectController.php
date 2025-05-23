@@ -1,7 +1,5 @@
 <?php
 
-// require_once APP_ROOT . '/config/database.php'; // Include database connection
-
 class SubjectController {
     private $pdo;
 
@@ -13,8 +11,7 @@ class SubjectController {
     public function create($data) {
         // Basic input validation
         if (!isset($data['subject_name'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing required field (subject_name).']);
+            ResponseHelper::send(400, ['error' => 'Missing required field (subject_name).']);
             return;
         }
 
@@ -33,57 +30,67 @@ class SubjectController {
 
             if ($stmt->execute()) {
                 // Subject creation successful
-                http_response_code(201); // 201 Created
-                echo json_encode(['message' => 'Subject created successfully.', 'subject_id' => $this->pdo->lastInsertId()]);
+                ResponseHelper::send(201, ['message' => 'Subject created successfully.', 'subject_id' => $this->pdo->lastInsertId()]);
             } else {
                 // Handle execution error (less likely with exceptions enabled)
-                http_response_code(500);
-                echo json_encode(['error' => 'Subject creation failed.']);
+                ResponseHelper::send(500, ['error' => 'Subject creation failed.']);
             }
         } catch (\PDOException $e) {
             // Handle database errors (e.g., duplicate subject name/code)
             if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry)
-                http_response_code(409); // 409 Conflict
-                echo json_encode(['error' => 'Subject name or code already exists.']);
+                ResponseHelper::send(409, ['error' => 'Subject name or code already exists.']);
             } else {
                 // Log other database errors
                 error_log("Database Error during subject creation: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'An internal server error occurred.']);
+                ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
             }
         }
     }
 
     // Handle getting all subjects
-    public function getAll() {
-        // Prepare and execute the SQL statement to retrieve all subjects
-        $sql = "SELECT subject_id, subject_name, subject_code, description FROM Subjects";
-
+    public function getAll($route_params = null, $request_data = null) {
         try {
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'Subjects', null, [], $page, $limit);
+
+            // Fetch subjects with LIMIT and OFFSET
+            $sql = "SELECT * FROM Subjects LIMIT :limit OFFSET :offset";
             $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
             $stmt->execute();
+            $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $subjects = $stmt->fetchAll();
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
 
-            // Return list of subjects
-            http_response_code(200); // OK
-            echo json_encode($subjects);
-        } catch (\PDOException $e) {
-            // Log database errors
-            error_log("Database Error fetching all subjects: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            // Combine data and metadata
+            $response_data = [
+                'data' => $subjects,
+                'meta' => $paginationMeta['pagination']
+            ];
+
+            ResponseHelper::send(200, $response_data);
+
+        } catch (PDOException $e) {
+            // Handle database errors
+            error_log("Database Error during subject retrieval: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during subject retrieval.']);
         }
     }
 
-    // Handle getting a single subject by ID
+    // Handle retrieving a single subject by ID
     public function getById($route_params, $request_data = null) {
         // Prepare and execute the SQL statement to retrieve a single subject by ID
         $sql = "SELECT subject_id, subject_name, subject_code, description FROM Subjects WHERE subject_id = :subject_id LIMIT 1";
 
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing subject ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing subject ID.']);
             return;
         }
 
@@ -98,18 +105,15 @@ class SubjectController {
 
             if ($subject) {
                 // Return subject data
-                http_response_code(200); // OK
-                echo json_encode($subject);
+                ResponseHelper::send(200, $subject);
             } else {
                 // Subject not found
-                http_response_code(404); // Not Found
-                echo json_encode(['error' => 'Subject not found.']);
+                ResponseHelper::send(404, ['error' => 'Subject not found.']);
             }
         } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error fetching subject by ID: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }
 
@@ -117,16 +121,14 @@ class SubjectController {
     public function update($route_params, $request_data) {
         // Basic input validation
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing subject ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing subject ID.']);
             return;
         }
 
         $subjectId = $route_params[0];
 
         if (!isset($request_data['subject_name']) && !isset($request_data['subject_code']) && !isset($request_data['description'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'No update data provided.']);
+            ResponseHelper::send(400, ['error' => 'No update data provided.']);
             return;
         }
 
@@ -147,8 +149,7 @@ class SubjectController {
         }
 
         if (empty($updates)) {
-             http_response_code(400);
-             echo json_encode(['error' => 'No valid fields to update.']);
+             ResponseHelper::send(400, ['error' => 'No valid fields to update.']);
              return;
         }
 
@@ -164,27 +165,22 @@ class SubjectController {
             if ($stmt->execute()) {
                 // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK
-                    echo json_encode(['message' => 'Subject updated successfully.']);
+                    ResponseHelper::send(200, ['message' => 'Subject updated successfully.']);
                 } else {
-                    http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Subject not found or no changes made.']);
+                    ResponseHelper::send(404, ['error' => 'Subject not found or no changes made.']);
                 }
             } else {
                 // Handle execution error
-                http_response_code(500);
-                echo json_encode(['error' => 'Subject update failed.']);
+                ResponseHelper::send(500, ['error' => 'Subject update failed.']);
             }
         } catch (PDOException $e) {
             // Handle database errors (e.g., duplicate subject name/code)
             if ($e->getCode() === '23000') { // Integrity constraint violation (e.g., duplicate entry)
-                http_response_code(409); // 409 Conflict
-                echo json_encode(['error' => 'Subject name or code already exists.']);
+                ResponseHelper::send(409, ['error' => 'Subject name or code already exists.']);
             } else {
                 // Log other database errors
                 error_log("Database Error during subject update: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'An internal server error occurred.']);
+                ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
             }
         }
     }
@@ -193,8 +189,7 @@ class SubjectController {
     public function delete($route_params, $request_data = null) {
         // Basic input validation
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing subject ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing subject ID.']);
             return;
         }
 
@@ -210,24 +205,20 @@ class SubjectController {
             if ($stmt->execute()) {
                 // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK or 204 No Content
-                    echo json_encode(['message' => 'Subject deleted successfully.']);
+                    ResponseHelper::send(200, ['message' => 'Subject deleted successfully.']);
                 } else {
-                    http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Subject not found.']);
+                    ResponseHelper::send(404, ['error' => 'Subject not found.']);
                 }
             } else {
                 // Handle execution error
-                http_response_code(500);
-                echo json_encode(['error' => 'Subject deletion failed.']);
+                ResponseHelper::send(500, ['error' => 'Subject deletion failed.']);
             }
         } catch (PDOException $e) {
             // Log database errors
             error_log("Database Error during subject deletion: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
+            }
         }
     }
-}
 
 ?>

@@ -12,6 +12,8 @@ require_once APP_ROOT . '/controllers/ExamSubjectController.php';
 require_once APP_ROOT . '/controllers/StudentSessionController.php';
 require_once APP_ROOT . '/controllers/StudentAnswerController.php';
 require_once APP_ROOT . '/middleware/AuthMiddleware.php';
+require_once APP_ROOT . '/utils/ResponseHelper.php';
+require_once APP_ROOT . '/utils/PaginationHelper.php';
 
 // Database connection (assuming $pdo is available from index.php)
 global $pdo;
@@ -21,175 +23,210 @@ $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
 $script_name = $_SERVER['SCRIPT_NAME'];
 
 // Remove query string from request URI
-if (($query_string_pos = strpos($request_uri, '?')) !== false) {
-    $request_uri = substr($request_uri, 0, $query_string_pos);
-}
+$request_path = strtok($request_uri, '?');
 
-// Determine the base path by comparing script name and request URI
-$base_path = '';
-$script_name_parts = explode('/', trim($script_name, '/'));
-$request_uri_parts = explode('/', trim($request_uri, '/'));
+// Get the base path (directory where index.php is located)
+$base_path = str_replace('\\', '/', dirname($script_name));
 
-// Find the common part of the path
-$common_parts = [];
-for ($i = 0; $i < min(count($script_name_parts), count($request_uri_parts)); $i++) {
-    if ($script_name_parts[$i] === $request_uri_parts[$i]) {
-        $common_parts[] = $script_name_parts[$i];
-    } else {
-        break;
-    }
-}
-
-// The base path is the common part, excluding the script file itself
-if (count($common_parts) > 0 && $common_parts[count($common_parts) - 1] === 'index.php') {
-    array_pop($common_parts);
-}
-$base_path = '/' . implode('/', $common_parts);
-
-// Remove the base path from the request URI
-if ($base_path !== '/' && strpos($request_uri, $base_path) === 0) {
-    $request_uri = substr($request_uri, strlen($base_path));
+// Remove base path from request URI
+if ($base_path !== '/' && strpos($request_path, $base_path) === 0) {
+    $request_path = substr($request_path, strlen($base_path));
 }
 
 // Trim leading and trailing slashes
-$request_uri = trim($request_uri, '/');
+$request_path = trim($request_path, '/');
 $request_method = $_SERVER['REQUEST_METHOD'];
 
 // Define routes
 $routes = [
-    'GET api/test' => ['controller' => null, 'method' => null, 'action' => function() { // Example route
+    'GET api/v1/test' => ['controller' => null, 'method' => null, 'action' => function() { // Example route
         header('Content-Type: application/json');
         echo json_encode(['message' => 'API is working!']);
     }],
-    'POST api/users/register' => ['controller' => 'UserController', 'method' => 'register'],
-    'POST api/users/login' => ['controller' => 'UserController', 'method' => 'login'],
+    'POST api/v1/users/register' => ['controller' => 'UserController', 'method' => 'register'],
+    'POST api/v1/users/login' => ['controller' => 'UserController', 'method' => 'login'],
     // Add other routes here
-    'GET api/users/profile' => ['controller' => 'UserController', 'method' => 'getProfile', 'middleware' => ['AuthMiddleware']],
+    'GET api/v1/users/profile' => ['controller' => 'UserController', 'method' => 'getProfile', 'middleware' => ['AuthMiddleware']],
+
+    // User routes
+    'GET api/v1/users' => ['controller' => 'UserController', 'method' => 'getAll'],
+    'GET api/v1/users/{id}' => ['controller' => 'UserController', 'method' => 'getById'],
+    'PUT api/v1/users/{id}' => ['controller' => 'UserController', 'method' => 'update'],
+    'DELETE api/v1/users/{id}' => ['controller' => 'UserController', 'method' => 'delete'],
 
     // Exam routes
-    'POST api/exams' => ['controller' => 'ExamController', 'method' => 'create'],
-    'GET api/exams' => ['controller' => 'ExamController', 'method' => 'getAll'],
-    'GET api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'getById'],
-    'PUT api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'update'],
-    'DELETE api/exams/{id}' => ['controller' => 'ExamController', 'method' => 'delete'],
+    'POST api/v1/exams' => ['controller' => 'ExamController', 'method' => 'create'],
+    'GET api/v1/exams' => ['controller' => 'ExamController', 'method' => 'getAll'],
+    'GET api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'getById'],
+    'PUT api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'update'],
+    'DELETE api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'delete'],
 
     // Subject routes
-    'POST api/subjects' => ['controller' => 'SubjectController', 'method' => 'create'],
-    'GET api/subjects' => ['controller' => 'SubjectController', 'method' => 'getAll'],
-    'GET api/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'getById'],
-    'PUT api/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'update'],
-    'DELETE api/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'delete'],
+    'POST api/v1/subjects' => ['controller' => 'SubjectController', 'method' => 'create'],
+    'GET api/v1/subjects' => ['controller' => 'SubjectController', 'method' => 'getAll'],
+    'GET api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'getById'],
+    'PUT api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'update'],
+    'DELETE api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'delete'],
 
     // Topic routes
-    'POST api/topics' => ['controller' => 'TopicController', 'method' => 'create'],
-    'GET api/topics' => ['controller' => 'TopicController', 'method' => 'getAll'],
-    'GET api/topics/{id}' => ['controller' => 'TopicController', 'method' => 'getById'],
-    'PUT api/topics/{id}' => ['controller' => 'TopicController', 'method' => 'update'],
-    'DELETE api/topics/{id}' => ['controller' => 'TopicController', 'method' => 'delete'],
+    'POST api/v1/topics' => ['controller' => 'TopicController', 'method' => 'create'],
+    'GET api/v1/topics' => ['controller' => 'TopicController', 'method' => 'getAll'],
+    'GET api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'getById'],
+    'PUT api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'update'],
+    'DELETE api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'delete'],
 
     // Question routes
-    'POST api/questions' => ['controller' => 'QuestionController', 'method' => 'create'],
-    'GET api/questions' => ['controller' => 'QuestionController', 'method' => 'getAll'],
-    'GET api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'getById'],
-    'PUT api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'update'],
-    'DELETE api/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'delete'],
+    'POST api/v1/questions' => ['controller' => 'QuestionController', 'method' => 'create'],
+    'GET api/v1/questions' => ['controller' => 'QuestionController', 'method' => 'getAll'],
+    'GET api/v1/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'getById'],
+    'PUT api/v1/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'update'],
+    'DELETE api/v1/questions/{id}' => ['controller' => 'QuestionController', 'method' => 'delete'],
+
+    // Bulk Question routes
+    'POST api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkCreate'],
+    'PUT api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkUpdate'],
+    'DELETE api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkDelete'],
 
     // Exam Subject routes
-    'POST api/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'create'],
-    'GET api/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'getAll'],
-    'GET api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'getById'],
-    'PUT api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'update'],
-    'DELETE api/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'delete'],
+    'POST api/v1/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'create'],
+    'GET api/v1/exam-subjects' => ['controller' => 'ExamSubjectController', 'method' => 'getAll'],
+    'GET api/v1/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'getById'],
+    'PUT api/v1/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'update'],
+    'DELETE api/v1/exam-subjects/{id}' => ['controller' => 'ExamSubjectController', 'method' => 'delete'],
 
     // Student Session routes
-    'POST api/student-sessions' => ['controller' => 'StudentSessionController', 'method' => 'create'],
-    'GET api/student-sessions' => ['controller' => 'StudentSessionController', 'method' => 'getAll'],
-    'GET api/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'getById'],
-    'PUT api/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'update'],
-    'DELETE api/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'delete'],
+    'POST api/v1/student-sessions' => ['controller' => 'StudentSessionController', 'method' => 'create'],
+    'GET api/v1/student-sessions' => ['controller' => 'StudentSessionController', 'method' => 'getAll'],
+    'GET api/v1/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'getById'],
+    'PUT api/v1/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'update'],
+    'DELETE api/v1/student-sessions/{id}' => ['controller' => 'StudentSessionController', 'method' => 'delete'],
 
     // Student Answer routes
-    'POST api/student-answers' => ['controller' => 'StudentAnswerController', 'method' => 'create'],
-    'GET api/student-sessions/{session_id}/answers' => ['controller' => 'StudentAnswerController', 'method' => 'getBySessionId'],
+    'POST api/v1/student-answers' => ['controller' => 'StudentAnswerController', 'method' => 'create'],
+    'GET api/v1/student-answers' => ['controller' => 'StudentAnswerController', 'method' => 'getAll'],
+    'GET api/v1/student-answers/{id}' => ['controller' => 'StudentAnswerController', 'method' => 'getById'],
+    'PUT api/v1/student-answers/{id}' => ['controller' => 'StudentAnswerController', 'method' => 'update'],
+    'DELETE api/v1/student-answers/{id}' => ['controller' => 'StudentAnswerController', 'method' => 'delete'],
 ];
 
-// Match route
+// Find matching route
 $matched_route = null;
 $route_params = [];
 
 foreach ($routes as $route => $handler) {
-    list($method, $uri_pattern) = explode(' ', $route);
+    list($method, $path) = explode(' ', $route);
 
-    // Convert dynamic segments like {id} to regex capture groups
-    $regex_pattern = '#^' . preg_replace('/\/{([^}]+)}/', '/([^/]+)', $uri_pattern) . '$#';
+    if ($method === $request_method) {
+        // Convert route path to a regex pattern
+        $pattern = '#^' . preg_replace('/\/{([^}]+)}/', '/([^/]+)', $path) . '$#';
 
-    if ($request_method === $method && preg_match($regex_pattern, $request_uri, $matches)) {
-        $matched_route = $handler;
-        // Extract dynamic parameters (skip the full match at index 0)
-        $route_params = array_slice($matches, 1);
-        break;
+        if (preg_match($pattern, $request_path, $matches)) {
+            $matched_route = $handler;
+            // Extract route parameters
+            $route_params = array_slice($matches, 1);
+            break;
+        }
     }
 }
 
-// Handle matched route
+// Handle the request
 if ($matched_route) {
-    $userData = null;
-    // Apply middleware if any
+    // Apply middleware if defined
     if (isset($matched_route['middleware'])) {
-        foreach ($matched_route['middleware'] as $middleware) {
-            // Call middleware and check if request should proceed
-            // Assuming middleware returns user data on success or exits on failure
-            if ($middleware === 'AuthMiddleware') {
-                $userData = AuthMiddleware::handle();
-                if (!$userData) {
-                    // AuthMiddleware handles the response and exits on failure
-                    return;
-                }
+        foreach ($matched_route['middleware'] as $middlewareName) {
+            // Assuming middleware classes are in the middleware directory and follow a naming convention
+            $middlewareFile = APP_ROOT . '/middleware/' . $middlewareName . '.php';
+            if (file_exists($middlewareFile)) {
+                require_once $middlewareFile;
+                $middleware = new $middlewareName($pdo); // Pass PDO if needed
+                // Middleware should call next() or terminate the request
+                // For simplicity, assuming middleware has a handle method
+                $middleware->handle(function() use ($matched_route, $route_params, $request_method, $pdo) {
+                    // This is the 'next' function that executes the controller action
+                    // Parse request data based on method
+                    $request_data = null;
+                    if ($request_method === 'POST' || $request_method === 'PUT') {
+                        $request_data = json_decode(file_get_contents('php://input'), true);
+                    } elseif ($request_method === 'GET') {
+                        // Parse query parameters for GET requests
+                        $request_data = $_GET;
+                    }
+
+                    if (isset($matched_route['action'])) {
+                        // Execute closure action
+                        $action = $matched_route['action'];
+                        $action();
+                    } elseif (isset($matched_route['controller'], $matched_route['method'])) {
+                        // Execute controller method
+                        $controllerName = $matched_route['controller'];
+                        $methodName = $matched_route['method'];
+
+                        // Assuming controller classes are in the controllers directory
+                        $controllerFile = APP_ROOT . '/controllers/' . $controllerName . '.php';
+                        if (file_exists($controllerFile)) {
+                            // require_once $controllerFile; // Already included at the top
+                            $controller = new $controllerName($pdo); // Pass PDO to controller constructor
+
+                            if (method_exists($controller, $methodName)) {
+                                // Pass route parameters and request data to the controller method
+                                $controller->$methodName($route_params, $request_data);
+                            } else {
+                                // Method not found in controller
+                                ResponseHelper::send(500, ['error' => 'Controller method not found.']);
+                            }
+                        } else {
+                            // Controller file not found
+                            ResponseHelper::send(500, ['error' => 'Controller file not found.']);
+                        }
+                    }
+                });
+            } else {
+                // Middleware file not found
+                ResponseHelper::send(500, ['error' => 'Middleware file not found: ' . $middlewareName]);
             }
-            // Add other middleware checks here
+        }
+    } else {
+        // No middleware, execute controller action directly
+        // Parse request data based on method
+        $request_data = null;
+        if ($request_method === 'POST' || $request_method === 'PUT') {
+            $request_data = json_decode(file_get_contents('php://input'), true);
+        } elseif ($request_method === 'GET') {
+            // Parse query parameters for GET requests
+            $request_data = $_GET;
+        }
+
+        if (isset($matched_route['action'])) {
+            // Execute closure action
+            $action = $matched_route['action'];
+            $action();
+        } elseif (isset($matched_route['controller'], $matched_route['method'])) {
+            // Execute controller method
+            $controllerName = $matched_route['controller'];
+            $methodName = $matched_route['method'];
+
+            // Assuming controller classes are in the controllers directory
+            $controllerFile = APP_ROOT . '/controllers/' . $controllerName . '.php';
+            if (file_exists($controllerFile)) {
+                // require_once $controllerFile; // Already included at the top
+                $controller = new $controllerName($pdo); // Pass PDO to controller constructor
+
+                if (method_exists($controller, $methodName)) {
+                    // Pass route parameters and request data to the controller method
+                    $controller->$methodName($route_params, $request_data);
+                } else {
+                    // Method not found in controller
+                    ResponseHelper::send(500, ['error' => 'Controller method not found.']);
+                }
+            } else {
+                // Controller file not found
+                ResponseHelper::send(500, ['error' => 'Controller file not found.']);
+            }
         }
     }
-
-    if (isset($matched_route['action'])) {
-        // Execute inline action
-        $matched_route['action']();
-    } elseif (isset($matched_route['controller']) && isset($matched_route['method'])) {
-        // Execute controller method
-        $controllerName = $matched_route['controller'];
-        $methodName = $matched_route['method'];
-
-        // Instantiate controller
-        $controller = new $controllerName($pdo);
-
-        // Get request data (for POST, PUT, etc.)
-        $request_data = json_decode(file_get_contents('php://input'), true);
-
-        // Pass user data from middleware to controller if available
-        $args = $route_params; // Start with dynamic parameters
-
-        if ($userData !== null) {
-            // Add user data and request data for authenticated routes
-            $args[] = $userData;
-            $args[] = $request_data;
-        } else {
-            // Add request data for non-authenticated routes
-            $args[] = $request_data;
-        }
-
-        // Log arguments for debugging
-        error_log("Route Params: " . print_r($route_params, true));
-        error_log("Args: " . print_r($args, true));
-
-        // Call the controller method with the prepared arguments
-        $controller->$methodName(...$args);
-
-
-    } 
 } else {
-    // Handle 404 Not Found
-    http_response_code(404);
-    header('Content-Type: application/json');
-    echo json_encode(['error' => 'Not Found']);
+    // No route matched
+    ResponseHelper::send(404, ['error' => 'Not Found']);
 }
 
 ?>

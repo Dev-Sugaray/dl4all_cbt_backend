@@ -93,14 +93,26 @@ class QuestionController {
         }
     }
 
-    // Handle retrieving all questions
-    public function getAll() {
+    // Handle retrieving all questions with pagination
+    public function getAll($route_params = null, $request_data = null) {
         try {
+            // Get pagination parameters from request data, with defaults
+            $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
+            $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+
+            // Calculate pagination data
+            $paginationData = PaginationHelper::paginate($this->pdo, 'Questions', null, [], $page, $limit);
+
+            // Fetch questions with LIMIT and OFFSET
             $sql = "SELECT q.*, es.exam_id, es.subject_id, t.topic_name, u.full_name as created_by_user_name FROM Questions q
                     JOIN ExamSubjects es ON q.exam_subject_id = es.exam_subject_id
                     LEFT JOIN Topics t ON q.topic_id = t.topic_id
-                    JOIN Users u ON q.created_by_user_id = u.user_id";
+                    JOIN Users u ON q.created_by_user_id = u.user_id
+                    LIMIT :limit OFFSET :offset";
+
             $stmt = $this->pdo->prepare($sql);
+            $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
             $stmt->execute();
             $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -113,10 +125,20 @@ class QuestionController {
                 $question['options'] = $stmt_options->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            http_response_code(200); // OK
-            echo json_encode($questions);
+            // Get pagination metadata
+            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
 
-        } catch (\PDOException $e) {
+            // Combine data and metadata
+            $response_data = [
+                'data' => $questions,
+                'meta' => $paginationMeta['pagination']
+            ];
+
+            http_response_code(200); // OK
+            echo json_encode($response_data);
+
+        } catch (PDOException $e) {
             // Handle database errors
             error_log("Database Error during question retrieval: " . $e->getMessage());
             http_response_code(500);
@@ -310,6 +332,270 @@ class QuestionController {
             error_log("Database Error during question deletion: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['error' => 'An internal server error occurred during question deletion.']);
+        }
+    }
+
+    // Handle creating multiple questions and their options in bulk
+    public function bulkCreate($data) {
+        // Basic input validation: check if data is an array and not empty
+        if (!is_array($data) || empty($data)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid or empty data array provided for bulk creation.']);
+            return;
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            $sql_question = "INSERT INTO Questions (exam_subject_id, topic_id, question_text, question_type, correct_answer, explanation, difficulty_level, created_by_user_id) VALUES (:exam_subject_id, :topic_id, :question_text, :question_type, :correct_answer, :explanation, :difficulty_level, :created_by_user_id)";
+            $stmt_question = $this->pdo->prepare($sql_question);
+
+            $sql_option = "INSERT INTO QuestionOptions (question_id, option_letter, option_text, is_correct) VALUES (:question_id, :option_letter, :option_text, :is_correct)";
+            $stmt_option = $this->pdo->prepare($sql_option);
+
+            $created_question_ids = [];
+
+            foreach ($data as $question_data) {
+                // Basic input validation for each question
+                if (!isset($question_data['exam_subject_id'], $question_data['question_text'], $question_data['question_type'], $question_data['correct_answer'], $question_data['created_by_user_id'], $question_data['options']) || !is_array($question_data['options']) || empty($question_data['options'])) {
+                     $this->pdo->rollBack();
+                     http_response_code(400);
+                     echo json_encode(['error' => 'Missing required fields or options array is missing/empty for one or more questions.']);
+                     return;
+                }
+
+                $exam_subject_id = $question_data['exam_subject_id'];
+                $topic_id = $question_data['topic_id'] ?? null;
+                $question_text = $question_data['question_text'];
+                $question_type = $question_data['question_type'];
+                $correct_answer = $question_data['correct_answer'];
+                $explanation = $question_data['explanation'] ?? null;
+                $difficulty_level = $question_data['difficulty_level'] ?? null;
+                $created_by_user_id = $question_data['created_by_user_id'];
+                $options = $question_data['options'];
+
+                // Insert the question
+                $stmt_question->bindParam(':exam_subject_id', $exam_subject_id, PDO::PARAM_INT);
+                $stmt_question->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
+                $stmt_question->bindParam(':question_text', $question_text);
+                $stmt_question->bindParam(':question_type', $question_type);
+                $stmt_question->bindParam(':correct_answer', $correct_answer);
+                $stmt_question->bindParam(':explanation', $explanation);
+                $stmt_question->bindParam(':difficulty_level', $difficulty_level);
+                $stmt_question->bindParam(':created_by_user_id', $created_by_user_id, PDO::PARAM_INT);
+
+                if (!$stmt_question->execute()) {
+                    throw new \PDOException('Failed to insert question during bulk creation.');
+                }
+
+                $question_id = $this->pdo->lastInsertId();
+                $created_question_ids[] = $question_id;
+
+                // Insert options for the question
+                foreach ($options as $option) {
+                    if (!isset($option['option_letter'], $option['option_text'], $option['is_correct'])) {
+                         $this->pdo->rollBack();
+                         http_response_code(400);
+                         echo json_encode(['error' => 'Missing required option fields for one or more options during bulk creation.']);
+                         return;
+                    }
+
+                    $option_letter = $option['option_letter'];
+                    $option_text = $option['option_text'];
+                    $is_correct = $option['is_correct'];
+
+                    $stmt_option->bindParam(':question_id', $question_id, PDO::PARAM_INT);
+                    $stmt_option->bindParam(':option_letter', $option_letter);
+                    $stmt_option->bindParam(':option_text', $option_text);
+                    $stmt_option->bindParam(':is_correct', $is_correct, PDO::PARAM_BOOL);
+
+                    if (!$stmt_option->execute()) {
+                        throw new \PDOException('Failed to insert option during bulk creation.');
+                    }
+                }
+            }
+
+            // Commit the transaction
+            $this->pdo->commit();
+
+            http_response_code(201); // 201 Created
+            echo json_encode(['message' => 'Questions and options created successfully in bulk.', 'question_ids' => $created_question_ids]);
+
+        } catch (\PDOException $e) {
+            // Rollback the transaction on error
+            $this->pdo->rollBack();
+
+            // Handle database errors
+            error_log("Database Error during bulk question/option creation: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'An internal server error occurred during bulk question/option creation.']);
+        }
+    }
+
+    // Handle updating multiple questions and their options in bulk
+    public function bulkUpdate($data) {
+        // Basic input validation: check if data is an array and not empty
+        if (!is_array($data) || empty($data)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid or empty data array provided for bulk update.']);
+            return;
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            $sql_update_question = "UPDATE Questions SET exam_subject_id = :exam_subject_id, topic_id = :topic_id, question_text = :question_text, question_type = :question_type, correct_answer = :correct_answer, explanation = :explanation, difficulty_level = :difficulty_level WHERE question_id = :question_id";
+            $stmt_update_question = $this->pdo->prepare($sql_update_question);
+
+            $sql_delete_options = "DELETE FROM QuestionOptions WHERE question_id = :question_id";
+            $stmt_delete_options = $this->pdo->prepare($sql_delete_options);
+
+            $sql_insert_option = "INSERT INTO QuestionOptions (question_id, option_letter, option_text, is_correct) VALUES (:question_id, :option_letter, :option_text, :is_correct)";
+            $stmt_insert_option = $this->pdo->prepare($sql_insert_option);
+
+            $updated_count = 0;
+
+            foreach ($data as $question_data) {
+                // Basic input validation for each question update
+                if (!isset($question_data['question_id']) || !isset($question_data['exam_subject_id'], $question_data['question_text'], $question_data['question_type'], $question_data['correct_answer'], $question_data['options']) || !is_array($question_data['options'])) {
+                     $this->pdo->rollBack();
+                     http_response_code(400);
+                     echo json_encode(['error' => 'Missing required fields or options array is missing/invalid for one or more questions in bulk update.']);
+                     return;
+                }
+
+                $question_id = $question_data['question_id'];
+                $exam_subject_id = $question_data['exam_subject_id'];
+                $topic_id = $question_data['topic_id'] ?? null;
+                $question_text = $question_data['question_text'];
+                $question_type = $question_data['question_type'];
+                $correct_answer = $question_data['correct_answer'];
+                $explanation = $question_data['explanation'] ?? null;
+                $difficulty_level = $question_data['difficulty_level'] ?? null;
+                $options = $question_data['options'];
+
+                // Update the question
+                $stmt_update_question->bindParam(':question_id', $question_id, PDO::PARAM_INT);
+                $stmt_update_question->bindParam(':exam_subject_id', $exam_subject_id, PDO::PARAM_INT);
+                $stmt_update_question->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
+                $stmt_update_question->bindParam(':question_text', $question_text);
+                $stmt_update_question->bindParam(':question_type', $question_type);
+                $stmt_update_question->bindParam(':correct_answer', $correct_answer);
+                $stmt_update_question->bindParam(':explanation', $explanation);
+                $stmt_update_question->bindParam(':difficulty_level', $difficulty_level);
+
+                if (!$stmt_update_question->execute()) {
+                    throw new \PDOException('Failed to update question during bulk update.');
+                }
+
+                // Delete existing options for the question
+                $stmt_delete_options->bindParam(':question_id', $question_id, PDO::PARAM_INT);
+                if (!$stmt_delete_options->execute()) {
+                     throw new \PDOException('Failed to delete existing options during bulk update.');
+                }
+
+                // Insert new options for the question
+                foreach ($options as $option) {
+                    if (!isset($option['option_letter'], $option['option_text'], $option['is_correct'])) {
+                         $this->pdo->rollBack();
+                         http_response_code(400);
+                         echo json_encode(['error' => 'Missing required option fields for one or more options during bulk update.']);
+                         return;
+                    }
+
+                    $option_letter = $option['option_letter'];
+                    $option_text = $option['option_text'];
+                    $is_correct = $option['is_correct'];
+
+                    $stmt_insert_option->bindParam(':question_id', $question_id, PDO::PARAM_INT);
+                    $stmt_insert_option->bindParam(':option_letter', $option_letter);
+                    $stmt_insert_option->bindParam(':option_text', $option_text);
+                    $stmt_insert_option->bindParam(':is_correct', $is_correct, PDO::PARAM_BOOL);
+
+                    if (!$stmt_insert_option->execute()) {
+                        throw new \PDOException('Failed to insert option during bulk update.');
+                    }
+                }
+                $updated_count++;
+            }
+
+            // Commit the transaction
+            $this->pdo->commit();
+
+            http_response_code(200); // OK
+            echo json_encode(['message' => "{$updated_count} questions and their options updated successfully in bulk."]);
+
+        } catch (\PDOException $e) {
+            // Rollback the transaction on error
+            $this->pdo->rollBack();
+
+            // Handle database errors
+            error_log("Database Error during bulk question/option update: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'An internal server error occurred during bulk question/option update.']);
+        }
+    }
+
+    // Handle deleting multiple questions and their options in bulk
+    public function bulkDelete($data) {
+        // Basic input validation: check if data is an array of IDs and not empty
+        if (!is_array($data) || empty($data)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid or empty data array provided for bulk deletion.']);
+            return;
+        }
+
+        // Ensure all elements in the array are integers (question IDs)
+        foreach ($data as $id) {
+            if (!is_int($id) || $id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid question ID found in the bulk deletion request.']);
+                return;
+            }
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            // Create a comma-separated string of question IDs for the SQL query
+            $placeholders = implode(',', array_fill(0, count($data), '?'));
+
+            // Delete associated options first due to foreign key constraint
+            $sql_delete_options = "DELETE FROM QuestionOptions WHERE question_id IN ({$placeholders})";
+            $stmt_delete_options = $this->pdo->prepare($sql_delete_options);
+            // Bind parameters - PDO requires binding each value individually for IN clause
+            foreach ($data as $index => $id) {
+                $stmt_delete_options->bindValue(($index + 1), $id, PDO::PARAM_INT);
+            }
+
+            if (!$stmt_delete_options->execute()) {
+                 throw new \PDOException('Failed to delete associated options during bulk deletion.');
+            }
+
+            // Then delete the questions
+            $sql_delete_question = "DELETE FROM Questions WHERE question_id IN ({$placeholders})";
+            $stmt_delete_question = $this->pdo->prepare($sql_delete_question);
+             // Bind parameters for question deletion
+            foreach ($data as $index => $id) {
+                $stmt_delete_question->bindValue(($index + 1), $id, PDO::PARAM_INT);
+            }
+
+            if ($stmt_delete_question->execute()) {
+                $deleted_count = $stmt_delete_question->rowCount();
+                $this->pdo->commit();
+                http_response_code(200); // OK
+                echo json_encode(['message' => "{$deleted_count} questions and associated options deleted successfully in bulk."]);
+            } else {
+                throw new \PDOException('Failed to delete questions during bulk deletion.');
+            }
+        } catch (\PDOException $e) {
+            // Rollback the transaction on error
+            $this->pdo->rollBack();
+
+            // Handle database errors
+            error_log("Database Error during bulk question/option deletion: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'An internal server error occurred during bulk question/option deletion.']);
         }
     }
 }
