@@ -1,5 +1,17 @@
 <?php
 
+// CORS headers for all responses
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Credentials: true');
+
+// Handle preflight OPTIONS request globally
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
+
 // Basic Router (can be replaced by a framework router)
 
 // Include controllers and middleware
@@ -212,8 +224,13 @@ if ($matched_route) {
                 $controller = new $controllerName($pdo); // Pass PDO to controller constructor
 
                 if (method_exists($controller, $methodName)) {
-                    // Pass route parameters and request data to the controller method
-                    $controller->$methodName($route_params, $request_data);
+                    // Special handling for register and login: pass only request data
+                    if ($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) {
+                        $controller->$methodName($request_data);
+                    } else {
+                        // Pass route parameters and request data to the controller method
+                        $controller->$methodName($route_params, $request_data);
+                    }
                 } else {
                     // Method not found in controller
                     ResponseHelper::send(500, ['error' => 'Controller method not found.']);

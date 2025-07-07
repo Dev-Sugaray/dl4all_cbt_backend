@@ -4,6 +4,9 @@
 
 <script setup>
 import AppLayout from './components/AppLayout.vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
+router.replace({ name: 'login' })
 </script>
 
 <style>
