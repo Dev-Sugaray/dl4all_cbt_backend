@@ -9,6 +9,11 @@ class UserController {
 
     // Handle user registration
     public function register($data) {
+        // Accept 'admin' as 'administrator' for user_role
+        if (isset($data['user_role']) && $data['user_role'] === 'admin') {
+            $data['user_role'] = 'administrator';
+        }
+
         // Basic input validation
         if (!isset($data['email'], $data['password'], $data['user_role'])) {
             ResponseHelper::send(400, ['error' => 'Missing required fields (email, password, user_role).']);
