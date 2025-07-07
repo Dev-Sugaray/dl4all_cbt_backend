@@ -2,7 +2,7 @@
   <div class="app-layout">
     <header v-if="showLayout" class="app-header">
       <!-- Header content will go here -->
-      <h1>CBT App Header</h1>
+      <h1>ExamFlow</h1>
     </header>
 
     <aside v-if="showLayout" class="app-sidebar">
@@ -22,7 +22,7 @@
 
     <footer v-if="showLayout" class="app-footer">
       <!-- Footer content will go here -->
-      <p>&copy; 2024 CBT App</p>
+      <p>&copy; 2024 ExamFlow</p>
     </footer>
   </div>
 </template>
