@@ -1,11 +1,11 @@
 <template>
   <div class="app-layout">
-    <header class="app-header">
+    <header v-if="showLayout" class="app-header">
       <!-- Header content will go here -->
-      <h1>CBT App Header</h1>
+      <h1>ExamFlow</h1>
     </header>
 
-    <aside class="app-sidebar">
+    <aside v-if="showLayout" class="app-sidebar">
       <!-- Sidebar content will go here -->
       <nav>
         <ul>
@@ -20,15 +20,17 @@
       <router-view></router-view>
     </main>
 
-    <footer class="app-footer">
+    <footer v-if="showLayout" class="app-footer">
       <!-- Footer content will go here -->
-      <p>&copy; 2024 CBT App</p>
+      <p>&copy; 2024 ExamFlow</p>
     </footer>
   </div>
 </template>
 
 <script setup>
-// No specific script logic for the layout shell itself yet
+import { useRoute } from 'vue-router'
+const route = useRoute()
+const showLayout = !['login', 'register'].includes(route.name)
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
   <div class="home-view">
-    <h1>Welcome to the CBT App</h1>
+    <h1>Welcome to ExamFlow</h1>
     <p>This is the home page.</p>
   </div>
 </template>
