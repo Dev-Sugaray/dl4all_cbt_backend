@@ -74,8 +74,7 @@ const handleSubmit = async () => {
     const payload = {
       exam_name: examName.value,
       exam_abbreviation: examAbbreviation.value,
-      description: examDescription.value || null, // Send null if empty
-      is_active: true, // Default to active, or make it a form field if needed
+      description: examDescription.value || null, // Using 'description' as the key
     };
     await api.post('/api/v1/exams', payload);
     emit('exam-added');
