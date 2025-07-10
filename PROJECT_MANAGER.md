@@ -72,7 +72,7 @@ This document provides a structured project plan with milestones and detailed ta
 
 - [ ] **Exam Management:**
 
-  - [ ] Create a `ManageExams.vue` view.
+  - [X] Create a `ManageExams.vue` view.
   - [ ] Display a list of all exams with pagination.
   - [ ] Implement a form to create new exams.
   - [ ] Implement functionality to update existing exams.

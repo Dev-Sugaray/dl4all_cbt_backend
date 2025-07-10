@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/Login.vue';
 import RegisterView from '../views/Register.vue';
 import ProfileView from '../views/Profile.vue';
+import ManageExamsView from '../views/ManageExams.vue';
 
 const routes = [
   {
@@ -27,6 +28,12 @@ const routes = [
     path: '/profile',
     name: 'profile',
     component: ProfileView,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/manage-exams',
+    name: 'manage-exams',
+    component: ManageExamsView,
     meta: { requiresAuth: true },
   },
   // Add other routes here later

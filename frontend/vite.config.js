@@ -11,4 +11,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        // Optionally, if backend does not use /api prefix, uncomment below:
+        // rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })

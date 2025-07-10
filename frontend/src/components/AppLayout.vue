@@ -10,6 +10,7 @@
       <nav>
         <ul>
           <li><router-link to="/">Home</router-link></li>
+          <li><router-link to="/manage-exams">Manage Exams</router-link></li>
           <!-- Other navigation links will be added later -->
         </ul>
       </nav>
