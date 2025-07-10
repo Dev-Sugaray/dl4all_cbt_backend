@@ -1,11 +1,29 @@
 <template>
   <div class="p-8">
-    <h1 class="text-2xl font-bold mb-4">Manage Exams</h1>
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Manage Exams</h1>
+      <button
+        @click="showAddForm = !showAddForm"
+        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        {{ showAddForm ? 'Cancel' : 'Add New Exam' }}
+      </button>
+    </div>
+
+    <AddExamForm
+      v-if="showAddForm"
+      @exam-added="handleExamAdded"
+      @cancel="showAddForm = false"
+      class="mb-6"
+    />
+
     <div v-if="loading" class="text-center text-gray-500">Loading exams...</div>
     <div v-else-if="error" class="text-center text-red-500">{{ error }}</div>
     <div v-else>
-      <div v-if="exams.length === 0" class="text-center text-gray-400">No exams found.</div>
-      <div v-else>
+      <div v-if="exams.length === 0 && !showAddForm" class="text-center text-gray-400 py-8">
+        No exams found. Click "Add New Exam" to create one.
+      </div>
+      <div v-else-if="exams.length > 0">
         <div class="overflow-x-auto">
           <table class="min-w-full border mb-4 rounded-lg shadow-sm bg-white">
             <thead>
@@ -57,6 +75,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import api from '../api';
+import AddExamForm from '../components/Exam/AddExamForm.vue'; // Corrected path
 
 const exams = ref([]);
 const loading = ref(false);
@@ -64,6 +83,7 @@ const error = ref(null);
 const page = ref(1);
 const pageSize = ref(10);
 const totalPages = ref(1);
+const showAddForm = ref(false);
 
 const fetchExams = async () => {
   loading.value = true;
@@ -79,6 +99,13 @@ const fetchExams = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const handleExamAdded = () => {
+  showAddForm.value = false;
+  // Reset to page 1 and fetch exams to see the newly added one
+  page.value = 1;
+  fetchExams();
 };
 
 onMounted(fetchExams);
