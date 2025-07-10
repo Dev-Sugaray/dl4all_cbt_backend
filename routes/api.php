@@ -224,8 +224,9 @@ if ($matched_route) {
                 $controller = new $controllerName($pdo); // Pass PDO to controller constructor
 
                 if (method_exists($controller, $methodName)) {
-                    // Special handling for register and login: pass only request data
-                    if ($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) {
+                    // Special handling for register, login, and exam creation: pass only request data
+                    if (($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) ||
+                        ($controllerName === 'ExamController' && $methodName === 'create')) {
                         $controller->$methodName($request_data);
                     } else {
                         // Pass route parameters and request data to the controller method
