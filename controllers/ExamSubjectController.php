@@ -20,14 +20,11 @@ class ExamSubjectController {
         $number_of_questions = $data['number_of_questions'];
         $time_limit_seconds = $data['time_limit_seconds'];
         $scoring_scheme = $data['scoring_scheme'] ?? null; // scoring_scheme is optional
-        // Handle is_active, defaulting to true if not provided or null
-        // Convert to boolean 1 or 0 for database
-        $is_active = isset($data['is_active']) ? filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : true;
-        $is_active_db = $is_active === null ? 1 : (int)$is_active;
-
+        // is_active will now be handled by database default
 
         // Prepare and execute the SQL statement to insert the new exam subject
-        $sql = "INSERT INTO ExamSubjects (exam_id, subject_id, number_of_questions, time_limit_seconds, scoring_scheme, is_active) VALUES (:exam_id, :subject_id, :number_of_questions, :time_limit_seconds, :scoring_scheme, :is_active)";
+        // Removed is_active from columns and placeholders
+        $sql = "INSERT INTO ExamSubjects (exam_id, subject_id, number_of_questions, time_limit_seconds, scoring_scheme) VALUES (:exam_id, :subject_id, :number_of_questions, :time_limit_seconds, :scoring_scheme)";
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -36,7 +33,7 @@ class ExamSubjectController {
             $stmt->bindParam(':number_of_questions', $number_of_questions, PDO::PARAM_INT);
             $stmt->bindParam(':time_limit_seconds', $time_limit_seconds, PDO::PARAM_INT);
             $stmt->bindParam(':scoring_scheme', $scoring_scheme);
-            $stmt->bindParam(':is_active', $is_active_db, PDO::PARAM_INT); // Bind as integer
+            // Removed bindParam for is_active
 
             if ($stmt->execute()) {
                 // Exam subject creation successful
@@ -65,26 +62,49 @@ class ExamSubjectController {
             // Get pagination parameters from request data, with defaults
             $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+            $exam_id_filter = isset($request_data['exam_id']) ? (int)$request_data['exam_id'] : null;
+
+            $whereConditions = ["es.is_active = 1"];
+            $queryParams = [];
+
+            if ($exam_id_filter !== null) {
+                $whereConditions[] = "es.exam_id = :exam_id_filter";
+                $queryParams[':exam_id_filter'] = $exam_id_filter;
+            }
+
+            $whereClauseSql = implode(" AND ", $whereConditions);
 
             // Construct the explicit count query
-            $explicitCountQuery = "SELECT COUNT(*) FROM ExamSubjects WHERE is_active = 1";
+            $explicitCountQuery = "SELECT COUNT(*) FROM ExamSubjects es WHERE {$whereClauseSql}";
 
-            // Calculate pagination data using the explicit count query
+            // Calculate pagination data using the explicit count query and params
             $paginationData = PaginationHelper::paginate(
-                $this->pdo,             // 1st: $pdo
-                'ExamSubjects',         // 2nd: $table (still needed for context, though count query is explicit)
-                $explicitCountQuery,    // 3rd: $countQuery
-                [],                     // 4th: $params (no params for this specific count query)
-                $page,                  // 5th: $page
-                $limit,                 // 6th: $limit
-                ''                      // 7th: $whereClause (empty, as it's in $explicitCountQuery)
+                $this->pdo,
+                'ExamSubjects',
+                $explicitCountQuery,
+                $queryParams, // Pass query params for count query
+                $page,
+                $limit,
+                ''
             );
 
-            // Fetch ExamSubjects with LIMIT and OFFSET, only active ones
-            $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id WHERE es.is_active = 1 LIMIT :limit OFFSET :offset";
+            // Fetch ExamSubjects with LIMIT and OFFSET, and dynamic WHERE clause
+            $sql = "SELECT es.*, e.exam_name, s.subject_name
+                    FROM ExamSubjects es
+                    JOIN Exams e ON es.exam_id = e.exam_id
+                    JOIN Subjects s ON es.subject_id = s.subject_id
+                    WHERE {$whereClauseSql}
+                    LIMIT :limit OFFSET :offset";
+
             $stmt = $this->pdo->prepare($sql);
+
+            // Bind parameters for the main data query
+            foreach ($queryParams as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
             $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
             $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+
             $stmt->execute();
             $examSubjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
