@@ -5,6 +5,7 @@ import LoginView from '../views/Login.vue';
 import RegisterView from '../views/Register.vue';
 import ProfileView from '../views/Profile.vue';
 import ManageExamsView from '../views/ManageExams.vue';
+import ManageSubjectsView from '../views/ManageSubjects.vue'; // Import the new view
 
 const routes = [
   {
@@ -35,6 +36,12 @@ const routes = [
     name: 'manage-exams',
     component: ManageExamsView,
     meta: { requiresAuth: true },
+  },
+  {
+    path: '/manage-subjects',
+    name: 'manage-subjects',
+    component: ManageSubjectsView,
+    meta: { requiresAuth: true }, // Assuming this also requires authentication
   },
   // Add other routes here later
 ];

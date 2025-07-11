@@ -61,6 +61,36 @@ export const deleteExam = (examId) => {
   return api.delete(`/api/v1/exams/${examId}`);
 };
 
+// Specific API functions for Subjects
+export const getSubjects = (page = 1, limit = 10, activeOnly = false) => {
+  const params = { page, limit };
+  if (activeOnly) {
+    params.active_only = 'true';
+  }
+  return api.get('/api/v1/subjects', { params });
+};
+
+export const getSubjectById = (subjectId) => {
+  return api.get(`/api/v1/subjects/${subjectId}`);
+};
+
+export const createSubject = (subjectData) => {
+  return api.post('/api/v1/subjects', subjectData);
+};
+
+export const updateSubject = (subjectId, subjectData) => {
+  // Ensure is_active is explicitly sent if present in subjectData
+  // The backend expects a boolean or something that evaluates to it.
+  // Our ManageSubjects.vue component handles the logic for what to send for is_active.
+  return api.put(`/api/v1/subjects/${subjectId}`, subjectData);
+};
+
+// This function will perform a soft delete (set is_active to false)
+export const deleteSubject = (subjectId) => {
+  return api.delete(`/api/v1/subjects/${subjectId}`);
+};
+
+
 // You can add other entity API functions here following the same pattern
 
 export default api; // Export the configured axios instance for direct use if needed
