@@ -145,10 +145,20 @@ const fetchSubjects = async () => {
   error.value = null;
   try {
     const response = await getSubjects(currentPage.value, pageSize.value);
-    subjects.value = response.data.data.map(s => ({...s, is_active: Boolean(s.is_active)}));
-    totalPages.value = response.data.meta?.total_pages || 1;
+
+    // Defensive coding: Ensure the expected data structure exists
+    if (response && response.data && Array.isArray(response.data.data)) {
+      subjects.value = response.data.data.map(s => ({...s, is_active: Boolean(s.is_active)}));
+      totalPages.value = response.data.meta?.total_pages || 1;
+    } else {
+      // Handle cases where the response or its data is not as expected
+      console.error('Fetch subjects error: Unexpected response structure', response);
+      error.value = 'Failed to load subjects due to unexpected server response.';
+      subjects.value = []; // Clear subjects
+      totalPages.value = 1; // Reset pagination
+    }
   } catch (err) {
-    console.error('Fetch subjects error:', err);
+    console.error('Fetch subjects error (catch block):', err); // Log the caught error
     error.value = err.response?.data?.error || err.message || 'Failed to load subjects.';
     subjects.value = [];
   } finally {
