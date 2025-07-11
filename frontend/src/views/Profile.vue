@@ -1,21 +1,29 @@
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold">User Profile</h1>
-    <div v-if="loading && !userProfile" class="mt-4">Loading profile...</div>
-    <div v-if="!loading && userProfile" class="mt-4 p-4 border rounded shadow-md">
-      <p><strong>Email:</strong> {{ userProfile.email }}</p>
-      <p><strong>Role:</strong> {{ userProfile.user_role }}</p>
-      <p v-if="userProfile.full_name"><strong>Full Name:</strong> {{ userProfile.full_name }}</p>
-      <!-- Add more user details here as needed -->
-      <button @click="handleLogout" class="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700">
-        Logout
-      </button>
+  <div class="container p-4">
+    <h1 class="h2 fw-bold mb-4">User Profile</h1>
+    <div v-if="loading && !userProfile" class="mt-4 alert alert-info">
+      <div class="spinner-border spinner-border-sm me-2" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      Loading profile...
     </div>
-    <div v-if="!loading && !userProfile && authStore.getIsAuthenticated" class="mt-4 text-red-500">
+    <div v-if="!loading && userProfile" class="mt-4 p-3 border rounded shadow-sm card">
+      <div class="card-body">
+        <h5 class="card-title">Profile Details</h5>
+        <p class="card-text"><strong>Email:</strong> {{ userProfile.email }}</p>
+        <p class="card-text"><strong>Role:</strong> <span class="badge bg-secondary">{{ userProfile.user_role }}</span></p>
+        <p v-if="userProfile.full_name" class="card-text"><strong>Full Name:</strong> {{ userProfile.full_name }}</p>
+        <!-- Add more user details here as needed -->
+        <button @click="handleLogout" class="btn btn-danger mt-3">
+          Logout
+        </button>
+      </div>
+    </div>
+    <div v-if="!loading && !userProfile && authStore.getIsAuthenticated" class="mt-4 alert alert-danger">
       Could not load user profile data. Please try again later.
     </div>
-     <div v-if="!loading && !userProfile && !authStore.getIsAuthenticated" class="mt-4 text-orange-500">
-      You are not logged in or your session has expired. Please <router-link to="/login" class="underline">login</router-link>.
+     <div v-if="!loading && !userProfile && !authStore.getIsAuthenticated" class="mt-4 alert alert-warning">
+      You are not logged in or your session has expired. Please <router-link to="/login" class="alert-link text-decoration-underline">login</router-link>.
     </div>
   </div>
 </template>

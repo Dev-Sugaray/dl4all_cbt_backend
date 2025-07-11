@@ -1,53 +1,54 @@
 <template>
-  <div class="p-4 border rounded-lg shadow-sm bg-white mt-4">
-    <h2 class="text-xl font-semibold mb-3">Add New Exam</h2>
+  <div class="p-3 border rounded-lg shadow-sm bg-white mt-3">
+    <h2 class="fs-4 fw-semibold mb-3">Add New Exam</h2>
     <form @submit.prevent="handleSubmit">
       <div class="mb-3">
-        <label for="examName" class="block text-sm font-medium text-gray-700">Exam Name</label>
+        <label for="examName" class="form-label small">Exam Name</label>
         <input
           type="text"
           id="examName"
           v-model="examName"
           required
-          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          class="form-control mt-1"
         />
       </div>
       <div class="mb-3">
-        <label for="examAbbreviation" class="block text-sm font-medium text-gray-700">Abbreviation</label>
+        <label for="examAbbreviation" class="form-label small">Abbreviation</label>
         <input
           type="text"
           id="examAbbreviation"
           v-model="examAbbreviation"
           required
-          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          class="form-control mt-1"
         />
       </div>
       <div class="mb-3">
-        <label for="examDescription" class="block text-sm font-medium text-gray-700">Description (Optional)</label>
+        <label for="examDescription" class="form-label small">Description (Optional)</label>
         <textarea
           id="examDescription"
           v-model="examDescription"
           rows="3"
-          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          class="form-control mt-1"
         ></textarea>
       </div>
-      <div v-if="error" class="mb-3 text-sm text-red-600">
+      <div v-if="error" class="mb-3 small text-danger">
         {{ error }}
       </div>
-      <div class="flex justify-end">
+      <div class="d-flex justify-content-end">
         <button
           type="button"
           @click="$emit('cancel')"
-          class="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="btn btn-light me-2"
         >
           Cancel
         </button>
         <button
           type="submit"
           :disabled="loading"
-          class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          class="btn btn-primary"
         >
-          <span v-if="loading">Adding...</span>
+          <span v-if="loading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <span v-if="loading"> Adding...</span>
           <span v-else>Add Exam</span>
         </button>
       </div>
@@ -93,4 +94,8 @@ const handleSubmit = async () => {
 
 <style scoped>
 /* Add any component-specific styles here */
+/* For example, to make the spinner align nicely with text in the button: */
+.btn .spinner-border-sm {
+  vertical-align: text-bottom;
+}
 </style>
