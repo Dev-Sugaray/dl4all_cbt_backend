@@ -26,12 +26,13 @@
       @cancel="showEditModal = false"
     />
 
-    <!-- Delete Confirm Modal -->
-    <DeleteConfirmModal
-      v-if="showDeleteModal"
-      :exam="deletingExam"
-      @confirm-delete="handleConfirmDelete"
-      @cancel="showDeleteModal = false"
+    <!-- Disable Confirm Modal -->
+    <DisableConfirmModal
+      v-if="showDisableModal"
+      :exam="disablingExam"
+      :parentLoading="actionLoading"
+      @confirm-disable="handleConfirmDisable"
+      @cancel="showDisableModal = false"
     />
 
     <!-- Loading and Error States -->
@@ -77,7 +78,13 @@
                 <td class="text-center align-middle">{{ new Date(exam.creation_date).toLocaleDateString() }}</td>
                 <td class="text-center align-middle">
                   <button class="btn btn-sm btn-outline-primary me-1" @click="openEditModal(exam)">Edit</button>
-                  <button class="btn btn-sm btn-outline-danger" @click="openDeleteModal(exam)">Delete</button>
+                  <button
+                    class="btn btn-sm"
+                    :class="exam.is_active ? 'btn-outline-warning' : 'btn-outline-success'"
+                    @click="openDisableModal(exam)"
+                  >
+                    {{ exam.is_active ? 'Disable' : 'Enable' }}
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -108,10 +115,11 @@ import { ref, onMounted, watch } from 'vue';
 import api, { getExams, updateExam, deleteExam, createExam as apiCreateExam } from '../api';
 import AddExamForm from '../components/Exam/AddExamForm.vue';
 import EditExamModal from '../components/Exam/EditExamModal.vue';
-import DeleteConfirmModal from '../components/Exam/DeleteConfirmModal.vue';
+import DisableConfirmModal from '../components/Exam/DisableConfirmModal.vue'; // Renamed import
 
 const exams = ref([]);
-const loading = ref(false);
+const loading = ref(false); // For main table loading
+const actionLoading = ref(false); // For modal action buttons like save, disable
 const error = ref(null); // For general errors like loading exams
 const page = ref(1);
 const pageSize = ref(10);
@@ -120,11 +128,11 @@ const showAddForm = ref(false);
 
 const showEditModal = ref(false);
 const editingExam = ref(null);
-const showDeleteModal = ref(false);
-const deletingExam = ref(null);
+const showDisableModal = ref(false); // Renamed variable
+const disablingExam = ref(null); // Renamed variable
 
 const fetchExams = async () => {
-  loading.value = true;
+  loading.value = true; // This is for the main table loading
   error.value = null;
   try {
     // Use the new getExams function
@@ -170,28 +178,49 @@ const handleExamUpdated = async (updatedExamData) => {
   }
 };
 
-// --- Delete Logic ---
-const openDeleteModal = (exam) => {
-  deletingExam.value = exam;
-  showDeleteModal.value = true;
+// --- Disable/Enable Logic ---
+const openDisableModal = (exam) => { // Renamed function
+  disablingExam.value = JSON.parse(JSON.stringify(exam)); // Store a copy
+  showDisableModal.value = true;
 };
 
-const handleConfirmDelete = async () => {
-  if (!deletingExam.value) return;
-  const examIdToDelete = deletingExam.value.exam_id; // Store id before closing modal and clearing deletingExam
-  showDeleteModal.value = false;
+const handleConfirmDisable = async () => { // Renamed function
+  if (!disablingExam.value) return;
 
-  try {
-    // Use the new deleteExam function
-    await deleteExam(examIdToDelete);
-    fetchExams();
-    alert('Exam deleted successfully!');
-  } catch (err) {
-    console.error('Delete exam error:', err);
-    alert(err.response?.data?.message || 'Failed to delete exam.');
-  } finally {
-    deletingExam.value = null;
+  actionLoading.value = true;
+  const examToDisable = disablingExam.value;
+  // The API for soft delete actually makes it inactive.
+  // To "enable" it, we would need to PUT it with is_active: true.
+  // For "disable", we call the current deleteExam which makes it inactive.
+  // The prompt in the modal now asks to type "disable" for the disable action.
+  // If we are "enabling", we should change the is_active flag and PUT.
+
+  if (examToDisable.is_active) { // If currently active, we want to disable it
+    try {
+      await deleteExam(examToDisable.exam_id); // This endpoint makes it inactive
+      fetchExams();
+      alert(`Exam "${examToDisable.exam_name}" disabled successfully!`);
+    } catch (err) {
+      console.error('Disable exam error:', err);
+      alert(err.response?.data?.message || `Failed to disable exam "${examToDisable.exam_name}".`);
+    }
+  } else { // If currently inactive, we want to enable it
+    try {
+      // We need to make a PUT request to update is_active to true
+      // The EditExamModal already handles this, but we are in a different flow.
+      // We can call updateExam directly.
+      await updateExam(examToDisable.exam_id, { ...examToDisable, is_active: true });
+      fetchExams();
+      alert(`Exam "${examToDisable.exam_name}" enabled successfully!`);
+    } catch (err) {
+      console.error('Enable exam error:', err);
+      alert(err.response?.data?.message || `Failed to enable exam "${examToDisable.exam_name}".`);
+    }
   }
+
+  actionLoading.value = false;
+  showDisableModal.value = false;
+  disablingExam.value = null;
 };
 
 onMounted(fetchExams);
