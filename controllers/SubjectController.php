@@ -62,8 +62,18 @@ class SubjectController {
                 $conditions = "WHERE is_active = TRUE";
             }
 
-
-            $paginationData = PaginationHelper::paginate($this->pdo, 'Subjects', $conditions, $params, $page, $limit);
+            // Corrected call to PaginationHelper::paginate
+            // Pass $conditions as the $whereClause (7th argument) and null for $countQuery (3rd argument)
+            // Pass $params as the $params (4th argument)
+            $paginationData = PaginationHelper::paginate(
+                $this->pdo,
+                'Subjects',
+                null, // $countQuery (let helper build it)
+                $params, // $params for binding to $whereClause
+                $page,
+                $limit,
+                $conditions // $whereClause
+            );
 
             $sql = "SELECT * FROM Subjects {$conditions} ORDER BY creation_date DESC LIMIT :limit OFFSET :offset";
             $stmt = $this->pdo->prepare($sql);
