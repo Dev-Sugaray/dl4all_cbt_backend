@@ -55,12 +55,24 @@ const editableSubject = reactive({
 const loading = ref(false);
 const error = ref(null);
 
+// Moved resetForm definition before the watch that uses it
+const resetForm = () => {
+  editableSubject.subject_id = null;
+  editableSubject.subject_name = '';
+  editableSubject.subject_code = '';
+  editableSubject.description = '';
+  error.value = null;
+  loading.value = false;
+};
+
 watch(() => props.subject, (newVal) => {
   if (newVal) {
     editableSubject.subject_id = newVal.subject_id;
     editableSubject.subject_name = newVal.subject_name;
     editableSubject.subject_code = newVal.subject_code;
     editableSubject.description = newVal.description || '';
+    error.value = null; // Clear previous errors when a new subject is loaded
+    loading.value = false;
   } else {
     resetForm(); // Reset if subject becomes null (e.g. modal closed and prop cleared)
   }
@@ -91,17 +103,18 @@ const submitForm = async () => {
 
 const closeModal = () => {
   emit('cancel');
-  resetForm(); // Reset form fields and error on close
+  // resetForm is called by the watch when props.subject becomes null if modal is closed by setting show=false
+  // If closeModal is called directly (e.g. by X button), ensure reset happens too.
+  // However, the watch with immediate:true and dependency on props.subject becoming null
+  // should already handle this when the parent sets :subject="null" upon closing.
+  // To be safe, explicitly calling it here is fine, or rely on the watcher.
+  // For now, let's ensure it's clean for direct calls.
+  if (props.show) { // Only reset if it was actually shown and then closed by this action
+      resetForm();
+  }
 };
 
-const resetForm = () => {
-  editableSubject.subject_id = null;
-  editableSubject.subject_name = '';
-  editableSubject.subject_code = '';
-  editableSubject.description = '';
-  error.value = null;
-  loading.value = false;
-};
+// resetForm is defined above the watch function now.
 
 </script>
 
