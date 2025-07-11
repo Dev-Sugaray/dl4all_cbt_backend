@@ -1,70 +1,70 @@
 <template>
-  <div class="flex items-center justify-center min-h-screen bg-gray-100">
-    <div class="px-8 py-6 mt-4 text-left bg-white shadow-lg rounded-lg sm:w-full md:w-1/2 lg:w-1/3">
-      <h3 class="text-2xl font-bold text-center">Create an account</h3>
+  <div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+    <div class="p-4 p-md-5 mt-4 text-start bg-white shadow-lg rounded-3 col-11 col-sm-8 col-md-6 col-lg-4">
+      <h3 class="h3 text-center fw-bold mb-4">Create an account</h3>
       <form @submit.prevent="handleRegister">
-        <div class="mt-4">
-          <div>
-            <label class="block" for="email">Email</label>
-            <input
-              type="email"
-              placeholder="Email"
-              id="email"
-              v-model="email"
-              class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-              required
-            />
-          </div>
-          <div class="mt-4">
-            <label class="block" for="password">Password</label>
-            <input
-              type="password"
-              placeholder="Password"
-              id="password"
-              v-model="password"
-              class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-              required
-            />
-          </div>
-          <div class="mt-4">
-            <label class="block" for="confirmPassword">Confirm Password</label>
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              id="confirmPassword"
-              v-model="confirmPassword"
-              class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-              required
-            />
-          </div>
-          <div class="mt-4">
-            <label class="block" for="userRole">Role</label>
-            <select
-              id="userRole"
-              v-model="userRole"
-              class="w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600"
-              required
-            >
-              <option value="student">Student</option>
-              <option value="admin">Admin</option>
-              <!-- Add other roles as needed -->
-            </select>
-          </div>
-          <div v-if="errorMessage" class="mt-4 text-red-500">
-            {{ errorMessage }}
-          </div>
-          <div class="flex items-baseline justify-between">
-            <button
-              type="submit"
-              :disabled="loading"
-              class="px-6 py-2 mt-4 text-white bg-blue-600 rounded-lg hover:bg-blue-900 disabled:bg-gray-400"
-            >
-              Register
-            </button>
-            <router-link to="/login" class="text-sm text-blue-600 hover:underline">
-              Already have an account? Login
-            </router-link>
-          </div>
+        <div class="mb-3">
+          <label class="form-label" for="email">Email</label>
+          <input
+            type="email"
+            placeholder="Email"
+            id="email"
+            v-model="email"
+            class="form-control mt-1"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="password">Password</label>
+          <input
+            type="password"
+            placeholder="Password"
+            id="password"
+            v-model="password"
+            class="form-control mt-1"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="confirmPassword">Confirm Password</label>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            id="confirmPassword"
+            v-model="confirmPassword"
+            class="form-control mt-1"
+            required
+          />
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="userRole">Role</label>
+          <select
+            id="userRole"
+            v-model="userRole"
+            class="form-select mt-1"
+            required
+          >
+            <option value="student">Student</option>
+            <option value="admin">Admin</option>
+            <!-- Add other roles as needed -->
+          </select>
+        </div>
+        <div v-if="errorMessage" class="mt-3 mb-3 text-danger small">
+          {{ errorMessage }}
+        </div>
+        <div class="d-flex align-items-baseline justify-content-between mt-4">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="btn btn-primary px-4 py-2"
+          >
+            <span v-if="loading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span v-if="loading"> Registering...</span>
+            <span v-else>Register</span>
+          </button>
+          <router-link to="/login" class="small text-primary text-decoration-none">
+            Already have an account? Login
+          </router-link>
         </div>
       </form>
     </div>

@@ -1,10 +1,10 @@
 <template>
-  <div class="p-8">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Manage Exams</h1>
+  <div class="p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="h2 fw-bold">Manage Exams</h1>
       <button
         @click="showAddForm = !showAddForm"
-        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="btn btn-primary btn-sm"
       >
         {{ showAddForm ? 'Cancel' : 'Add New Exam' }}
       </button>
@@ -14,55 +14,64 @@
       v-if="showAddForm"
       @exam-added="handleExamAdded"
       @cancel="showAddForm = false"
-      class="mb-6"
+      class="mb-4"
     />
 
-    <div v-if="loading" class="text-center text-gray-500">Loading exams...</div>
-    <div v-else-if="error" class="text-center text-red-500">{{ error }}</div>
+    <div v-if="loading" class="text-center text-muted">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p>Loading exams...</p>
+    </div>
+    <div v-else-if="error" class="text-center text-danger">{{ error }}</div>
     <div v-else>
-      <div v-if="exams.length === 0 && !showAddForm" class="text-center text-gray-400 py-8">
-        No exams found. Click "Add New Exam" to create one.
+      <div v-if="exams.length === 0 && !showAddForm" class="text-center text-secondary py-5">
+        <p>No exams found.</p>
+        <p>Click "Add New Exam" to create one.</p>
       </div>
       <div v-else-if="exams.length > 0">
-        <div class="overflow-x-auto">
-          <table class="min-w-full border mb-4 rounded-lg shadow-sm bg-white">
-            <thead>
-              <tr class="bg-gray-100 text-gray-700">
-                <th class="py-2 px-4 border">S/N</th>
-                <th class="py-2 px-4 border">Name</th>
-                <th class="py-2 px-4 border">Abbreviation</th>
-                <th class="py-2 px-4 border">Description</th>
-                <th class="py-2 px-4 border">Active</th>
-                <th class="py-2 px-4 border">Created</th>
-                <th class="py-2 px-4 border">Actions</th>
+        <div class="table-responsive shadow-sm rounded-3">
+          <table class="table table-bordered table-striped table-hover bg-white mb-4">
+            <thead class="table-light">
+              <tr>
+                <th scope="col" class="text-center">S/N</th>
+                <th scope="col">Name</th>
+                <th scope="col">Abbreviation</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="text-center">Active</th>
+                <th scope="col" class="text-center">Created</th>
+                <th scope="col" class="text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(exam, idx) in exams" :key="exam.exam_id" class="hover:bg-gray-50">
-                <td class="py-2 px-4 border text-center">{{ (page - 1) * pageSize + idx + 1 }}</td>
-                <td class="py-2 px-4 border">{{ exam.exam_name }}</td>
-                <td class="py-2 px-4 border">{{ exam.exam_abbreviation }}</td>
-                <td class="py-2 px-4 border">{{ exam.description || '-' }}</td>
-                <td class="py-2 px-4 border text-center">
-                  <span :class="exam.is_active ? 'text-green-600 font-semibold' : 'text-gray-400'">
+              <tr v-for="(exam, idx) in exams" :key="exam.exam_id">
+                <td class="text-center align-middle">{{ (page - 1) * pageSize + idx + 1 }}</td>
+                <td class="align-middle">{{ exam.exam_name }}</td>
+                <td class="align-middle">{{ exam.exam_abbreviation }}</td>
+                <td class="align-middle">{{ exam.description || '-' }}</td>
+                <td class="text-center align-middle">
+                  <span :class="exam.is_active ? 'badge bg-success' : 'badge bg-secondary'">
                     {{ exam.is_active ? 'Yes' : 'No' }}
                   </span>
                 </td>
-                <td class="py-2 px-4 border text-center">{{ new Date(exam.creation_date).toLocaleString() }}</td>
-                <td class="py-2 px-4 border text-center">--</td>
+                <td class="text-center align-middle">{{ new Date(exam.creation_date).toLocaleDateString() }}</td>
+                <td class="text-center align-middle">
+                  <button class="btn btn-sm btn-outline-primary me-1" @click="editExam(exam)">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" @click="deleteExam(exam)">Delete</button>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="flex justify-center items-center gap-2">
+        <div v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-2 mt-4">
           <button
-            class="px-3 py-1 rounded border bg-gray-100 hover:bg-gray-200"
+            class="btn btn-outline-secondary btn-sm"
             :disabled="page === 1"
             @click="page--"
           >Prev</button>
-          <span>Page {{ page }} of {{ totalPages }}</span>
+          <span class="small">Page {{ page }} of {{ totalPages }}</span>
           <button
-            class="px-3 py-1 rounded border bg-gray-100 hover:bg-gray-200"
+            class="btn btn-outline-secondary btn-sm"
             :disabled="page === totalPages"
             @click="page++"
           >Next</button>

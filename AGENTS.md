@@ -6,7 +6,7 @@ This document outlines the requirements and specifications for generating the `A
 
 - **Framework:** Vue.js 3 (Composition API)
 - **State Management:** Pinia
-- **Styling:** Tailwind CSS
+- **Styling:** Bootstrap
 - **Routing:** Use Vue Router in **hash mode** (URLs will include `#`, e.g., `/#/dashboard`). Do not use history mode.
 - **Build Output:** The frontend build (`dist`) will be served from the backend. After building, move the `dist` folder into a new `frontend` directory within the backend project. Modify the backend to serve the frontend as the main index.
 
@@ -228,8 +228,8 @@ This section provides a detailed list of all available backend endpoints.
   - Store files in a `stores/` directory
   - Use `useXStore` naming convention
 - **CSS:**
-  - Use Tailwind utility classes
-  - Avoid custom CSS unless necessary
+  - Use Bootstrap utility classes and components.
+  - Minimize custom CSS; prefer Bootstrap customization options if needed.
 
 ## 6. Directory Structure Example
 
@@ -243,7 +243,7 @@ frontend/
   │   ├── assets/
   │   └── App.vue
   ├── public/
-  ├── tailwind.config.js
+  ├── package.json
   ├── package.json
   └── ...
 ```
@@ -335,7 +335,7 @@ VITE_API_BASE_URL=http://localhost:8000/api/v1
 
 - All components must follow accessibility (a11y) best practices.
 - Use semantic HTML and ARIA attributes where appropriate.
-- Ensure the UI is responsive using Tailwind's utility classes.
+- Ensure the UI is responsive using Bootstrap's grid system and responsive utilities.
 
 ## 17. API Versioning
 

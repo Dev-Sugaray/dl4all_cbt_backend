@@ -1,6 +1,7 @@
 export default {
   plugins: {
-    tailwindcss: {}, // Changed back to tailwindcss
-    autoprefixer: {},
+    // autoprefixer is not strictly necessary with modern Bootstrap,
+    // but can be kept if other CSS needs vendor prefixes.
+    // For now, let's remove it to minimize dependencies.
   },
 }
