@@ -67,7 +67,16 @@ class ExamSubjectController {
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
 
             // Calculate pagination data
-            $paginationData = PaginationHelper::paginate($this->pdo, 'ExamSubjects', 'is_active = 1', [], $page, $limit);
+            // Corrected parameter passing for PaginationHelper::paginate
+            $paginationData = PaginationHelper::paginate(
+                $this->pdo,             // 1st: $pdo
+                'ExamSubjects',         // 2nd: $table
+                null,                   // 3rd: $countQuery (use default count query)
+                [],                     // 4th: $params (no params for count query here)
+                $page,                  // 5th: $page
+                $limit,                 // 6th: $limit
+                'is_active = 1'         // 7th: $whereClause
+            );
 
             // Fetch ExamSubjects with LIMIT and OFFSET, only active ones
             $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id WHERE es.is_active = 1 LIMIT :limit OFFSET :offset";
