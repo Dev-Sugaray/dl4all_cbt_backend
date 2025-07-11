@@ -81,7 +81,7 @@
                 </td>
                 <td class="text-center align-middle small">{{ new Date(subject.creation_date).toLocaleDateString() }}</td>
                 <td class="text-center align-middle">
-                    class="btn btn-xs btn-outline-primary me-1 px-2 py-1" @click="openEditModal(subject)">
+                  <button class="btn btn-xs btn-outline-primary me-1 px-2 py-1" @click="openEditModal(subject)">
                     <small>Edit</small>
                   </button>
                   <button
