@@ -61,7 +61,9 @@ CREATE TABLE `Subjects` (
   `subject_id` INT AUTO_INCREMENT PRIMARY KEY,
   `subject_name` VARCHAR(255) UNIQUE NOT NULL,
   `subject_code` VARCHAR(50) UNIQUE NULL,
-  `description` TEXT NULL
+  `description` TEXT NULL,
+  `is_active` BOOLEAN DEFAULT TRUE,
+  `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- --------------------------------------------------------
