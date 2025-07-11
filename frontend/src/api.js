@@ -90,6 +90,26 @@ export const deleteSubject = (subjectId) => {
   return api.delete(`/api/v1/subjects/${subjectId}`);
 };
 
+// Specific API functions for ExamSubjects
+export const getExamSubjects = (params = {}) => {
+  // params can include exam_id, subject_id, page, limit, etc.
+  // The backend controller's getAll method for ExamSubjects already filters by is_active = 1
+  return api.get('/api/v1/exam-subjects', { params });
+};
+
+export const createExamSubject = (examSubjectData) => {
+  return api.post('/api/v1/exam-subjects', examSubjectData);
+};
+
+export const updateExamSubject = (examSubjectId, examSubjectData) => {
+  return api.put(`/api/v1/exam-subjects/${examSubjectId}`, examSubjectData);
+};
+
+// Soft deletes by setting is_active to false (handled by backend controller)
+export const deleteExamSubject = (examSubjectId) => {
+  return api.delete(`/api/v1/exam-subjects/${examSubjectId}`);
+};
+
 
 // You can add other entity API functions here following the same pattern
 

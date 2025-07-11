@@ -76,6 +76,7 @@ CREATE TABLE `ExamSubjects` (
   `number_of_questions` INT NOT NULL,
   `time_limit_seconds` INT NOT NULL,
   `scoring_scheme` TEXT NULL,
+  `is_active` BOOLEAN DEFAULT TRUE,
   FOREIGN KEY (`exam_id`) REFERENCES `Exams` (`exam_id`),
   FOREIGN KEY (`subject_id`) REFERENCES `Subjects` (`subject_id`)
 );

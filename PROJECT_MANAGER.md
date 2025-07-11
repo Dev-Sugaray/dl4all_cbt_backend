@@ -84,6 +84,19 @@ This document provides a structured project plan with milestones and detailed ta
   - [X] Implement a form to create new subjects.
   - [X] Implement functionality to update existing subjects.
   - [X] Implement functionality to delete subjects.
+- [X] **Exam Subject Management (Backend):**
+  - [X] Verified that the `ExamSubjects` table, controller, and routes are implemented in the backend.
+  - [X] Added `is_active` field to `ExamSubjects` table in `db.sql` for soft deletes.
+  - [X] Updated `ExamSubjectController.php` to handle `is_active` in CRUD operations (soft delete for remove).
+- [X] **Exam Subject Management (Frontend - New Task):**
+  - [X] Modify `ManageExams.vue` to add a "Manage Subjects" button/link for each exam, navigating to a new view.
+  - [X] Create `ManageExamSubjects.vue` view:
+    - [X] Display list of subjects associated with a specific exam (via `exam_id` route param).
+    - [X] Implement form to add an existing subject to the current exam, including fields for `number_of_questions`, `time_limit_seconds`, `scoring_scheme`, and `is_active`.
+    - [X] Implement functionality to edit these details for an existing exam-subject link (e.g., in a modal).
+    - [X] Implement functionality to "remove" (soft delete by setting `is_active=false`) or "enable" (set `is_active=true`) an exam-subject link.
+  - [X] Add new route in `router/index.js` for `ManageExamSubjects.vue` (e.g., `/manage-exams/:exam_id/subjects`).
+  - [X] Update `api.js` with functions for `getExamSubjects`, `createExamSubject`, `updateExamSubject`, `deleteExamSubject`.
 
 ---
 
