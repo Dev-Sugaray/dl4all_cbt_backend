@@ -70,20 +70,20 @@ This document provides a structured project plan with milestones and detailed ta
 
 ### Tasks Checklist
 
-- [ ] **Exam Management:**
+- [X] **Exam Management:**
 
   - [X] Create a `ManageExams.vue` view.
-  - [ ] Display a list of all exams with pagination.
-  - [ ] Implement a form to create new exams.
-  - [ ] Implement functionality to update existing exams.
-  - [ ] Implement functionality to delete exams.
-- [ ] **Subject Management:**
+  - [X] Display a list of all exams with pagination.
+  - [X] Implement a form to create new exams.
+  - [X] Implement functionality to update existing exams.
+  - [X] Implement functionality to delete exams.
+- [X] **Subject Management:**
 
-  - [ ] Create a `ManageSubjects.vue` view.
-  - [ ] Display a list of all subjects with pagination.
-  - [ ] Implement a form to create new subjects.
-  - [ ] Implement functionality to update existing subjects.
-  - [ ] Implement functionality to delete subjects.
+  - [X] Create a `ManageSubjects.vue` view.
+  - [X] Display a list of all subjects with pagination.
+  - [X] Implement a form to create new subjects.
+  - [X] Implement functionality to update existing subjects.
+  - [X] Implement functionality to delete subjects.
 
 ---
 
