@@ -10,6 +10,7 @@
       </button>
     </div>
 
+    <!-- Add Exam Form -->
     <AddExamForm
       v-if="showAddForm"
       @exam-added="handleExamAdded"
@@ -17,13 +18,32 @@
       class="mb-4"
     />
 
+    <!-- Edit Exam Modal -->
+    <EditExamModal
+      v-if="showEditModal"
+      :exam="editingExam"
+      @exam-updated="handleExamUpdated"
+      @cancel="showEditModal = false"
+    />
+
+    <!-- Delete Confirm Modal -->
+    <DeleteConfirmModal
+      v-if="showDeleteModal"
+      :exam="deletingExam"
+      @confirm-delete="handleConfirmDelete"
+      @cancel="showDeleteModal = false"
+    />
+
+    <!-- Loading and Error States -->
     <div v-if="loading" class="text-center text-muted">
       <div class="spinner-border" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
       <p>Loading exams...</p>
     </div>
-    <div v-else-if="error" class="text-center text-danger">{{ error }}</div>
+    <div v-else-if="error" class="alert alert-danger text-center">{{ error }}</div>
+
+    <!-- Exams Table -->
     <div v-else>
       <div v-if="exams.length === 0 && !showAddForm" class="text-center text-secondary py-5">
         <p>No exams found.</p>
@@ -56,13 +76,14 @@
                 </td>
                 <td class="text-center align-middle">{{ new Date(exam.creation_date).toLocaleDateString() }}</td>
                 <td class="text-center align-middle">
-                  <button class="btn btn-sm btn-outline-primary me-1" @click="editExam(exam)">Edit</button>
-                  <button class="btn btn-sm btn-outline-danger" @click="deleteExam(exam)">Delete</button>
+                  <button class="btn btn-sm btn-outline-primary me-1" @click="openEditModal(exam)">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" @click="openDeleteModal(exam)">Delete</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <!-- Pagination -->
         <div v-if="totalPages > 1" class="d-flex justify-content-center align-items-center gap-2 mt-4">
           <button
             class="btn btn-outline-secondary btn-sm"
@@ -83,28 +104,36 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import api from '../api';
-import AddExamForm from '../components/Exam/AddExamForm.vue'; // Corrected path
+// Import specific functions and the default api instance
+import api, { getExams, updateExam, deleteExam, createExam as apiCreateExam } from '../api';
+import AddExamForm from '../components/Exam/AddExamForm.vue';
+import EditExamModal from '../components/Exam/EditExamModal.vue';
+import DeleteConfirmModal from '../components/Exam/DeleteConfirmModal.vue';
 
 const exams = ref([]);
 const loading = ref(false);
-const error = ref(null);
+const error = ref(null); // For general errors like loading exams
 const page = ref(1);
 const pageSize = ref(10);
 const totalPages = ref(1);
 const showAddForm = ref(false);
 
+const showEditModal = ref(false);
+const editingExam = ref(null);
+const showDeleteModal = ref(false);
+const deletingExam = ref(null);
+
 const fetchExams = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const response = await api.get(`/api/v1/exams`, {
-      params: { page: page.value, limit: pageSize.value },
-    });
+    // Use the new getExams function
+    const response = await getExams(page.value, pageSize.value);
     exams.value = response.data.data || response.data.exams || [];
-    totalPages.value = response.data.totalPages || response.data.total_pages || 1;
+    totalPages.value = response.data.pagination?.total_pages || response.data.totalPages || response.data.total_pages || 1;
   } catch (err) {
-    error.value = 'Failed to load exams.';
+    console.error('Fetch exams error:', err);
+    error.value = err.response?.data?.message || 'Failed to load exams. Please try again.';
   } finally {
     loading.value = false;
   }
@@ -112,9 +141,57 @@ const fetchExams = async () => {
 
 const handleExamAdded = () => {
   showAddForm.value = false;
-  // Reset to page 1 and fetch exams to see the newly added one
   page.value = 1;
   fetchExams();
+  alert('Exam added successfully!'); // Placeholder notification
+  // Note: AddExamForm.vue would also need to be updated to use apiCreateExam if it's making the call directly
+};
+
+// --- Edit Logic ---
+const openEditModal = (exam) => {
+  // Create a deep copy for editing to avoid mutating the original object in the list directly
+  editingExam.value = JSON.parse(JSON.stringify(exam));
+  showEditModal.value = true;
+};
+
+const handleExamUpdated = async (updatedExamData) => {
+  showEditModal.value = false;
+  try {
+    // Use the new updateExam function
+    await updateExam(updatedExamData.exam_id, updatedExamData);
+    fetchExams();
+    alert('Exam updated successfully!');
+  } catch (err) {
+    console.error('Update exam error:', err);
+    alert(err.response?.data?.message || 'Failed to update exam.');
+    // Optionally, reopen modal or handle error more gracefully
+    // For now, we don't reopen, user can click edit again.
+    // If EditExamModal handles its own loading/error state for submission, that would be better.
+  }
+};
+
+// --- Delete Logic ---
+const openDeleteModal = (exam) => {
+  deletingExam.value = exam;
+  showDeleteModal.value = true;
+};
+
+const handleConfirmDelete = async () => {
+  if (!deletingExam.value) return;
+  const examIdToDelete = deletingExam.value.exam_id; // Store id before closing modal and clearing deletingExam
+  showDeleteModal.value = false;
+
+  try {
+    // Use the new deleteExam function
+    await deleteExam(examIdToDelete);
+    fetchExams();
+    alert('Exam deleted successfully!');
+  } catch (err) {
+    console.error('Delete exam error:', err);
+    alert(err.response?.data?.message || 'Failed to delete exam.');
+  } finally {
+    deletingExam.value = null;
+  }
 };
 
 onMounted(fetchExams);
@@ -123,4 +200,7 @@ watch(page, fetchExams);
 
 <style scoped>
 /* Add any custom styles for the placeholder here if needed */
+.alert {
+  margin-top: 1rem;
+}
 </style>
