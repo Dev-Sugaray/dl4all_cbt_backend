@@ -66,16 +66,18 @@ class ExamSubjectController {
             $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
 
-            // Calculate pagination data
-            // Corrected parameter passing for PaginationHelper::paginate
+            // Construct the explicit count query
+            $explicitCountQuery = "SELECT COUNT(*) FROM ExamSubjects WHERE is_active = 1";
+
+            // Calculate pagination data using the explicit count query
             $paginationData = PaginationHelper::paginate(
                 $this->pdo,             // 1st: $pdo
-                'ExamSubjects',         // 2nd: $table
-                null,                   // 3rd: $countQuery (use default count query)
-                [],                     // 4th: $params (no params for count query here)
+                'ExamSubjects',         // 2nd: $table (still needed for context, though count query is explicit)
+                $explicitCountQuery,    // 3rd: $countQuery
+                [],                     // 4th: $params (no params for this specific count query)
                 $page,                  // 5th: $page
                 $limit,                 // 6th: $limit
-                'is_active = 1'         // 7th: $whereClause
+                ''                      // 7th: $whereClause (empty, as it's in $explicitCountQuery)
             );
 
             // Fetch ExamSubjects with LIMIT and OFFSET, only active ones
