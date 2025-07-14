@@ -194,6 +194,96 @@ This section provides a detailed list of all available backend endpoints.
 
 ... (and so on for all other endpoints)
 
+### Exam Subject Management
+
+#### `POST /api/v1/exam-subjects`
+
+- **Description:** Creates a new exam-subject relationship.
+- **Request Body:**
+  ```json
+  {
+    "exam_id": 1,
+    "subject_id": 1,
+    "number_of_questions": 50,
+    "time_limit_seconds": 3600,
+    "scoring_scheme": "{\"correct\": 1, \"incorrect\": 0}"
+  }
+  ```
+- **Success Response (201):**
+  ```json
+  {
+    "message": "Exam subject created successfully.",
+    "exam_subject_id": 1
+  }
+  ```
+
+#### `GET /api/v1/exam-subjects`
+
+- **Description:** Retrieves a paginated list of all exam-subject relationships.
+- **Query Parameters:** `page`, `limit`
+- **Success Response (200):**
+  ```json
+  {
+    "data": [
+      {
+        "exam_subject_id": 1,
+        "exam_id": 1,
+        "subject_id": 1,
+        "exam_name": "Final Year Exam",
+        "subject_name": "Mathematics",
+        "number_of_questions": 50,
+        "time_limit_seconds": 3600,
+        "scoring_scheme": "{\"correct\": 1, \"incorrect\": 0}"
+      }
+    ],
+    "meta": { ... }
+  }
+  ```
+
+#### `GET /api/v1/exam-subjects/{id}`
+
+- **Description:** Retrieves a single exam-subject relationship by its ID.
+- **Success Response (200):**
+  ```json
+  {
+    "exam_subject_id": 1,
+    "exam_id": 1,
+    "subject_id": 1,
+    "exam_name": "Final Year Exam",
+    "subject_name": "Mathematics",
+    "number_of_questions": 50,
+    "time_limit_seconds": 3600,
+    "scoring_scheme": "{\"correct\": 1, \"incorrect\": 0}"
+  }
+  ```
+
+#### `PUT /api/v1/exam-subjects/{id}`
+
+- **Description:** Updates an exam-subject relationship.
+- **Request Body:**
+  ```json
+  {
+    "number_of_questions": 60,
+    "time_limit_seconds": 3000
+  }
+  ```
+- **Success Response (200):**
+  ```json
+  {
+    "message": "Exam subject updated successfully."
+  }
+  ```
+
+#### `DELETE /api/v1/exam-subjects/{id}`
+
+- **Description:** Deletes an exam-subject relationship.
+- **Success Response (200):**
+  ```json
+  {
+    "message": "Exam subject deleted successfully."
+  }
+  ```
+
 ---
 
 ## 3. Authentication & Authorization

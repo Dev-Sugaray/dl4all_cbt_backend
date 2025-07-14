@@ -20,8 +20,10 @@ class ExamSubjectController {
         $number_of_questions = $data['number_of_questions'];
         $time_limit_seconds = $data['time_limit_seconds'];
         $scoring_scheme = $data['scoring_scheme'] ?? null; // scoring_scheme is optional
+        // is_active will now be handled by database default
 
         // Prepare and execute the SQL statement to insert the new exam subject
+        // Removed is_active from columns and placeholders
         $sql = "INSERT INTO ExamSubjects (exam_id, subject_id, number_of_questions, time_limit_seconds, scoring_scheme) VALUES (:exam_id, :subject_id, :number_of_questions, :time_limit_seconds, :scoring_scheme)";
 
         try {
@@ -31,6 +33,7 @@ class ExamSubjectController {
             $stmt->bindParam(':number_of_questions', $number_of_questions, PDO::PARAM_INT);
             $stmt->bindParam(':time_limit_seconds', $time_limit_seconds, PDO::PARAM_INT);
             $stmt->bindParam(':scoring_scheme', $scoring_scheme);
+            // Removed bindParam for is_active
 
             if ($stmt->execute()) {
                 // Exam subject creation successful
@@ -59,15 +62,49 @@ class ExamSubjectController {
             // Get pagination parameters from request data, with defaults
             $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+            $exam_id_filter = isset($request_data['exam_id']) ? (int)$request_data['exam_id'] : null;
 
-            // Calculate pagination data
-            $paginationData = PaginationHelper::paginate($this->pdo, 'ExamSubjects', null, [], $page, $limit);
+            $whereConditions = ["es.is_active = 1"];
+            $queryParams = [];
 
-            // Fetch ExamSubjects with LIMIT and OFFSET
-            $sql = "SELECT es.*, e.exam_name, s.subject_name FROM ExamSubjects es JOIN Exams e ON es.exam_id = e.exam_id JOIN Subjects s ON es.subject_id = s.subject_id LIMIT :limit OFFSET :offset";
+            if ($exam_id_filter !== null) {
+                $whereConditions[] = "es.exam_id = :exam_id_filter";
+                $queryParams[':exam_id_filter'] = $exam_id_filter;
+            }
+
+            $whereClauseSql = implode(" AND ", $whereConditions);
+
+            // Construct the explicit count query
+            $explicitCountQuery = "SELECT COUNT(*) FROM ExamSubjects es WHERE {$whereClauseSql}";
+
+            // Calculate pagination data using the explicit count query and params
+            $paginationData = PaginationHelper::paginate(
+                $this->pdo,
+                'ExamSubjects',
+                $explicitCountQuery,
+                $queryParams, // Pass query params for count query
+                $page,
+                $limit,
+                ''
+            );
+
+            // Fetch ExamSubjects with LIMIT and OFFSET, and dynamic WHERE clause
+            $sql = "SELECT es.*, e.exam_name, s.subject_name
+                    FROM ExamSubjects es
+                    JOIN Exams e ON es.exam_id = e.exam_id
+                    JOIN Subjects s ON es.subject_id = s.subject_id
+                    WHERE {$whereClauseSql}
+                    LIMIT :limit OFFSET :offset";
+
             $stmt = $this->pdo->prepare($sql);
+
+            // Bind parameters for the main data query
+            foreach ($queryParams as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
             $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
             $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+
             $stmt->execute();
             $examSubjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -130,13 +167,19 @@ class ExamSubjectController {
 
         // Build the update query dynamically based on provided data
         $update_fields = [];
-        $allowed_fields = ['exam_id', 'subject_id', 'number_of_questions', 'time_limit_seconds', 'scoring_scheme'];
+        // Add 'is_active' to allowed fields for update
+        $allowed_fields = ['exam_id', 'subject_id', 'number_of_questions', 'time_limit_seconds', 'scoring_scheme', 'is_active'];
         $bind_params = [':exam_subject_id' => $exam_subject_id];
 
         foreach ($request_data as $key => $value) {
             if (in_array($key, $allowed_fields)) {
                 $update_fields[] = "`{$key}` = :{$key}";
-                $bind_params[":{$key}"] = $value;
+                // Ensure boolean values for 'is_active' are correctly handled
+                if ($key === 'is_active') {
+                    $bind_params[":{$key}"] = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === null ? null : (int)filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                } else {
+                    $bind_params[":{$key}"] = $value;
+                }
             }
         }
 
@@ -193,7 +236,8 @@ class ExamSubjectController {
 
         $exam_subject_id = $route_params[0];
 
-        $sql = "DELETE FROM ExamSubjects WHERE exam_subject_id = :exam_subject_id";
+        // Changed to soft delete: Update is_active to 0 (false)
+        $sql = "UPDATE ExamSubjects SET is_active = 0 WHERE exam_subject_id = :exam_subject_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
@@ -201,15 +245,16 @@ class ExamSubjectController {
 
             if ($stmt->execute()) {
                 if ($stmt->rowCount() > 0) {
-                    ResponseHelper::send(200, ['message' => 'Exam subject deleted successfully.']);
+                    ResponseHelper::send(200, ['message' => 'Exam subject disabled successfully (soft delete).']);
                 } else {
-                    ResponseHelper::send(404, ['message' => 'Exam subject not found.']);
+                    // Could be not found, or already inactive and no change was made
+                    ResponseHelper::send(404, ['message' => 'Exam subject not found or already inactive.']);
                 }
             } else {
-                ResponseHelper::send(500, ['error' => 'Exam subject deletion failed.']);
+                ResponseHelper::send(500, ['error' => 'Failed to disable exam subject.']);
             }
         } catch (PDOException $e) {
-            error_log("Database Error during exam subject deletion: " . $e->getMessage());
+            error_log("Database Error during exam subject soft delete: " . $e->getMessage());
             ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }

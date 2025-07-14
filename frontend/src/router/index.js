@@ -5,7 +5,8 @@ import LoginView from '../views/Login.vue';
 import RegisterView from '../views/Register.vue';
 import ProfileView from '../views/Profile.vue';
 import ManageExamsView from '../views/ManageExams.vue';
-import ManageSubjectsView from '../views/ManageSubjects.vue'; // Import the new view
+import ManageSubjectsView from '../views/ManageSubjects.vue';
+import ManageExamSubjectsView from '../views/ManageExamSubjects.vue'; // Import the new view
 
 const routes = [
   {
@@ -33,13 +34,21 @@ const routes = [
   },
   {
     path: '/manage-exams',
-    name: 'manage-exams',
+    name: 'ManageExams', // Consistent naming with component if possible
     component: ManageExamsView,
     meta: { requiresAuth: true },
   },
   {
+    // Route for managing subjects of a specific exam
+    path: '/manage-exams/:exam_id/subjects',
+    name: 'ManageExamSubjects',
+    component: ManageExamSubjectsView,
+    props: true, // Pass route params as props to the component
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/manage-subjects',
-    name: 'manage-subjects',
+    name: 'ManageSubjects', // Consistent naming
     component: ManageSubjectsView,
     meta: { requiresAuth: true }, // Assuming this also requires authentication
   },

@@ -77,13 +77,16 @@
                 </td>
                 <td class="text-center align-middle">{{ new Date(exam.creation_date).toLocaleDateString() }}</td>
                 <td class="text-center align-middle">
-                  <button class="btn btn-sm btn-outline-primary me-1" @click="openEditModal(exam)">Edit</button>
+                  <button class="btn btn-sm btn-outline-primary me-1 mb-1" @click="openEditModal(exam)">Edit</button>
                   <button
-                    class="btn btn-sm"
+                    class="btn btn-sm me-1 mb-1"
                     :class="exam.is_active ? 'btn-outline-warning' : 'btn-outline-success'"
                     @click="openDisableModal(exam)"
                   >
                     {{ exam.is_active ? 'Disable' : 'Enable' }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-info mb-1" @click="navigateToManageExamSubjects(exam.exam_id)">
+                    Subjects
                   </button>
                 </td>
               </tr>
@@ -111,6 +114,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 // Import specific functions and the default api instance
 import api, { getExams, updateExam, deleteExam, createExam as apiCreateExam } from '../api';
 import AddExamForm from '../components/Exam/AddExamForm.vue';
@@ -130,6 +134,12 @@ const showEditModal = ref(false);
 const editingExam = ref(null);
 const showDisableModal = ref(false); // Renamed variable
 const disablingExam = ref(null); // Renamed variable
+
+const router = useRouter();
+
+const navigateToManageExamSubjects = (examId) => {
+  router.push({ name: 'ManageExamSubjects', params: { exam_id: examId } });
+};
 
 const fetchExams = async () => {
   loading.value = true; // This is for the main table loading
