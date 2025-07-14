@@ -12,6 +12,7 @@
           <li><router-link to="/">Home</router-link></li>
           <li><router-link to="/manage-exams">Manage Exams</router-link></li>
           <li><router-link to="/manage-subjects">Manage Subjects</router-link></li>
+          <li><router-link to="/manage-topics">Manage Topics</router-link></li>
           <!-- Other navigation links will be added later -->
         </ul>
       </nav>

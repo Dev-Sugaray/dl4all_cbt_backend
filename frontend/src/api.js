@@ -110,6 +110,23 @@ export const deleteExamSubject = (examSubjectId) => {
   return api.delete(`/api/v1/exam-subjects/${examSubjectId}`);
 };
 
+// Specific API functions for Topics
+export const getTopics = (page = 1, limit = 10) => {
+  return api.get('/api/v1/topics', { params: { page, limit } });
+};
+
+export const createTopic = (topicData) => {
+  return api.post('/api/v1/topics', topicData);
+};
+
+export const updateTopic = (topicId, topicData) => {
+  return api.put(`/api/v1/topics/${topicId}`, topicData);
+};
+
+export const deleteTopic = (topicId) => {
+  return api.delete(`/api/v1/topics/${topicId}`);
+};
+
 
 // You can add other entity API functions here following the same pattern
 

@@ -77,15 +77,15 @@ $routes = [
     'POST api/v1/subjects' => ['controller' => 'SubjectController', 'method' => 'create'],
     'GET api/v1/subjects' => ['controller' => 'SubjectController', 'method' => 'getAll'],
     'GET api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'getById'],
-    'PUT api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'update'],
-    'DELETE api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'delete'],
+    'PUT api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'update', 'middleware' => ['AuthMiddleware']],
+    'DELETE api/v1/subjects/{id}' => ['controller' => 'SubjectController', 'method' => 'delete', 'middleware' => ['AuthMiddleware']],
 
     // Topic routes
-    'POST api/v1/topics' => ['controller' => 'TopicController', 'method' => 'create'],
-    'GET api/v1/topics' => ['controller' => 'TopicController', 'method' => 'getAll'],
-    'GET api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'getById'],
-    'PUT api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'update'],
-    'DELETE api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'delete'],
+    'POST api/v1/topics' => ['controller' => 'TopicController', 'method' => 'create', 'middleware' => ['AuthMiddleware']],
+    'GET api/v1/topics' => ['controller' => 'TopicController', 'method' => 'getAll', 'middleware' => ['AuthMiddleware']],
+    'GET api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'getById', 'middleware' => ['AuthMiddleware']],
+    'PUT api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'update', 'middleware' => ['AuthMiddleware']],
+    'DELETE api/v1/topics/{id}' => ['controller' => 'TopicController', 'method' => 'delete', 'middleware' => ['AuthMiddleware']],
 
     // Question routes
     'POST api/v1/questions' => ['controller' => 'QuestionController', 'method' => 'create'],
