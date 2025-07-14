@@ -143,6 +143,7 @@ const error = ref(null);
 // Form state for adding a new exam subject
 const showAddForm = ref(false);
 const newExamSubject = ref({
+  exam_id: parseInt(route.params.exam_id),
   subject_id: null,
   number_of_questions: 50, // Default value
   time_limit_seconds: 3600, // Default value (1 hour)

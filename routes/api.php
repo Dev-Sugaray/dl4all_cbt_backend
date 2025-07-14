@@ -228,7 +228,8 @@ if ($matched_route) {
                     if (
                         ($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) ||
                         ($controllerName === 'ExamController' && $methodName === 'create') ||
-                        ($controllerName === 'SubjectController' && $methodName === 'create') // Added SubjectController->create
+                        ($controllerName === 'SubjectController' && $methodName === 'create') ||
+                        ($controllerName === 'ExamSubjectController' && $methodName === 'create')
                     ) {
                         $controller->$methodName($request_data);
                     } else {
