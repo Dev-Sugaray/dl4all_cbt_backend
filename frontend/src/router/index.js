@@ -53,9 +53,10 @@ const routes = [
     meta: { requiresAuth: true }, // Assuming this also requires authentication
   },
   {
-    path: '/manage-topics',
+    path: '/manage-subjects/:subject_id/topics',
     name: 'ManageTopics',
     component: () => import('../views/ManageTopics.vue'),
+    props: true,
     meta: { requiresAuth: true },
   },
   // Add other routes here later

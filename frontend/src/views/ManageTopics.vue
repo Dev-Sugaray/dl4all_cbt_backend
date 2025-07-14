@@ -13,6 +13,7 @@
     <!-- Add Topic Form Component -->
     <AddTopicForm
       v-if="showAddForm"
+      :subject-id="subjectId"
       @topic-added="handleTopicAdded"
       @cancel="closeAddForm"
       class="mb-4"
@@ -117,6 +118,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import AddTopicForm from '../components/Topic/AddTopicForm.vue';
 import EditTopicModal from '../components/Topic/EditTopicModal.vue';
 import ConfirmToggleStatusModal from '../components/Topic/ConfirmToggleStatusModal.vue';
@@ -137,11 +139,14 @@ const topicToEdit = ref(null);
 const showConfirmToggleModal = ref(false);
 const topicToToggleStatus = ref(null);
 
+const route = useRoute();
+const subjectId = ref(route.params.subject_id);
+
 const fetchTopics = async () => {
   loading.value = true;
   error.value = null;
   try {
-    const response = await getTopics(currentPage.value, pageSize.value);
+    const response = await getTopics(currentPage.value, pageSize.value, subjectId.value);
     if (response && response.data && Array.isArray(response.data.data)) {
       topics.value = response.data.data.map(t => ({...t, is_active: Boolean(t.is_active)}));
       totalPages.value = response.data.meta?.total_pages || 1;

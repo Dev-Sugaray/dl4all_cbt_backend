@@ -16,24 +16,6 @@
           />
         </div>
         <div class="mb-3">
-          <label for="subject" class="form-label">Subject</label>
-          <select
-            id="subject"
-            v-model="topic.subject_id"
-            class="form-select"
-            required
-          >
-            <option disabled value="">Please select a subject</option>
-            <option
-              v-for="subject in subjects"
-              :key="subject.subject_id"
-              :value="subject.subject_id"
-            >
-              {{ subject.subject_name }}
-            </option>
-          </select>
-        </div>
-        <div class="mb-3">
           <label for="description" class="form-label">Description</label>
           <textarea
             id="description"
@@ -71,14 +53,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, defineProps } from 'vue';
 import { getSubjects, createTopic } from '../../api';
+
+const props = defineProps({
+  subjectId: {
+    type: String,
+    required: true,
+  },
+});
 
 const emit = defineEmits(['topic-added', 'cancel']);
 
 const topic = ref({
   topic_name: '',
-  subject_id: '',
+  subject_id: props.subjectId,
   description: '',
 });
 

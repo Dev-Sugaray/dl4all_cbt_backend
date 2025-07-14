@@ -111,8 +111,12 @@ export const deleteExamSubject = (examSubjectId) => {
 };
 
 // Specific API functions for Topics
-export const getTopics = (page = 1, limit = 10) => {
-  return api.get('/api/v1/topics', { params: { page, limit } });
+export const getTopics = (page = 1, limit = 10, subject_id = null) => {
+  const params = { page, limit };
+  if (subject_id) {
+    params.subject_id = subject_id;
+  }
+  return api.get('/api/v1/topics', { params });
 };
 
 export const createTopic = (topicData) => {

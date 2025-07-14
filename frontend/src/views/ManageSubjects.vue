@@ -91,6 +91,9 @@
                   >
                     <small>{{ subject.is_active ? 'Disable' : 'Enable' }}</small>
                   </button>
+                  <button class="btn btn-xs btn-outline-info ms-1 px-2 py-1" @click="navigateToManageTopics(subject.subject_id)">
+                    <small>Topics</small>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -117,6 +120,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 // Import new components
 import AddSubjectForm from '../components/Subject/AddSubjectForm.vue';
 import EditSubjectModal from '../components/Subject/EditSubjectModal.vue';
@@ -139,6 +143,12 @@ const subjectToEdit = ref(null);
 
 const showConfirmToggleModal = ref(false);
 const subjectToToggleStatus = ref(null);
+
+const router = useRouter();
+
+const navigateToManageTopics = (subjectId) => {
+  router.push({ name: 'ManageTopics', params: { subject_id: subjectId } });
+};
 
 const fetchSubjects = async () => {
   loading.value = true;

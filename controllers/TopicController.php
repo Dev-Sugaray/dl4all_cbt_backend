@@ -54,13 +54,29 @@ class TopicController {
         try {
             $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+            $subject_id = isset($request_data['subject_id']) ? (int) $request_data['subject_id'] : null;
 
-            $paginationData = PaginationHelper::paginate($this->pdo, 'Topics', null, [], $page, $limit);
+            $conditions = "";
+            $params = [];
+            if ($subject_id) {
+                $conditions = "t.subject_id = :subject_id";
+                $params[':subject_id'] = $subject_id;
+            }
 
-            $sql = "SELECT t.*, s.subject_name FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id ORDER BY t.creation_date DESC LIMIT :limit OFFSET :offset";
+            $paginationData = PaginationHelper::paginate($this->pdo, 'Topics t', null, $params, $page, $limit, $conditions);
+
+            $sql = "SELECT t.*, s.subject_name FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id";
+            if ($conditions) {
+                $sql .= " WHERE " . $conditions;
+            }
+            $sql .= " ORDER BY t.creation_date DESC LIMIT :limit OFFSET :offset";
+
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
             $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+            if ($subject_id) {
+                $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
+            }
             $stmt->execute();
             $topics = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
