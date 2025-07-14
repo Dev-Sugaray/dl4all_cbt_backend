@@ -59,7 +59,7 @@ class SubjectController {
             $conditions = "";
             $params = [];
             if (isset($request_data['active_only']) && $request_data['active_only'] == 'true') {
-                $conditions = "WHERE is_active = TRUE";
+                $conditions = "is_active = TRUE";
             }
 
             // Corrected call to PaginationHelper::paginate
@@ -75,7 +75,11 @@ class SubjectController {
                 $conditions // $whereClause
             );
 
-            $sql = "SELECT * FROM Subjects {$conditions} ORDER BY creation_date DESC LIMIT :limit OFFSET :offset";
+            $sql = "SELECT * FROM Subjects";
+            if (!empty($conditions)) {
+                $sql .= " WHERE {$conditions}";
+            }
+            $sql .= " ORDER BY creation_date DESC LIMIT :limit OFFSET :offset";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
             $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
