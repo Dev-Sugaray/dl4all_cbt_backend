@@ -19,7 +19,7 @@ class ExamSubjectController {
         $subject_id = $data['subject_id'];
         $number_of_questions = $data['number_of_questions'];
         $time_limit_seconds = $data['time_limit_seconds'];
-        $scoring_scheme = $data['scoring_scheme'] ?? null; // scoring_scheme is optional
+        $scoring_scheme = !empty($data['scoring_scheme']) ? $data['scoring_scheme'] : null; // scoring_scheme is optional
         // is_active will now be handled by database default
 
         // Prepare and execute the SQL statement to insert the new exam subject
@@ -178,7 +178,11 @@ class ExamSubjectController {
                 if ($key === 'is_active') {
                     $bind_params[":{$key}"] = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === null ? null : (int)filter_var($value, FILTER_VALIDATE_BOOLEAN);
                 } else {
-                    $bind_params[":{$key}"] = $value;
+                    if ($key === 'scoring_scheme' && empty($value)) {
+                        $bind_params[":{$key}"] = null;
+                    } else {
+                        $bind_params[":{$key}"] = $value;
+                    }
                 }
             }
         }
