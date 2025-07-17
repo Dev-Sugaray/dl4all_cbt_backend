@@ -47,6 +47,10 @@ export const deleteExam = (examId) => {
   return api.delete(`/api/v1/exams/${examId}`);
 };
 
+export const getAllActiveExams = () => {
+  return api.get('/api/v1/exams/active');
+};
+
 // Specific API functions for Subjects
 export const getSubjects = (page = 1, limit = 10, activeOnly = false) => {
   const params = { page, limit };

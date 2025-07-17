@@ -75,7 +75,7 @@ $routes = [
 
     // Exam routes
     'POST api/v1/exams' => ['controller' => 'ExamController', 'method' => 'create'],
-    'GET api/v1/exams/available-for-student' => ['controller' => 'ExamController', 'method' => 'getAvailableExamsForStudent', 'middleware' => ['AuthMiddleware']],
+    'GET api/v1/exams/active' => ['controller' => 'ExamController', 'method' => 'getAllActiveExams'],
     'GET api/v1/exams' => ['controller' => 'ExamController', 'method' => 'getAll'],
     'GET api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'getById'],
     'PUT api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'update'],

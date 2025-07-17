@@ -237,6 +237,21 @@ class ExamController {
             ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }
+
+    // Handle getting all active exams
+    public function getAllActiveExams() {
+        try {
+            $sql = "SELECT exam_id, exam_name, exam_abbreviation, description FROM Exams WHERE is_active = 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $exams = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            ResponseHelper::send(200, ['data' => $exams]);
+        } catch (PDOException $e) {
+            error_log("Database Error during active exam retrieval: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during active exam retrieval.']);
+        }
+    }
 }
 
 ?>
