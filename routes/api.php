@@ -96,6 +96,7 @@ $routes = [
 
     // Bulk Question routes
     'POST api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkCreate'],
+    'POST api/v1/questions/upload-csv' => ['controller' => 'QuestionController', 'method' => 'uploadCsv'],
     'PUT api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkUpdate'],
     'DELETE api/v1/questions/bulk' => ['controller' => 'QuestionController', 'method' => 'bulkDelete'],
 
@@ -229,7 +230,8 @@ if ($matched_route) {
                         ($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) ||
                         ($controllerName === 'ExamController' && $methodName === 'create') ||
                         ($controllerName === 'SubjectController' && $methodName === 'create') ||
-                        ($controllerName === 'ExamSubjectController' && $methodName === 'create')
+                        ($controllerName === 'ExamSubjectController' && $methodName === 'create') ||
+                        ($controllerName === 'QuestionController' && in_array($methodName, ['create', 'uploadCsv']))
                     ) {
                         $controller->$methodName($request_data);
                     } else {

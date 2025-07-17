@@ -12,6 +12,8 @@
           <li><router-link to="/">Home</router-link></li>
           <li><router-link to="/manage-exams">Manage Exams</router-link></li>
           <li><router-link to="/manage-subjects">Manage Subjects</router-link></li>
+          <li><router-link to="/manage-topics">Manage Topics</router-link></li>
+          <li><router-link to="/manage-questions">Manage Questions</router-link></li>
           <!-- Other navigation links will be added later -->
         </ul>
       </nav>
@@ -32,7 +34,8 @@
 <script setup>
 import { useRoute } from 'vue-router'
 const route = useRoute()
-const showLayout = !['login', 'register'].includes(route.name)
+// Hide layout for login/register and student routes (student routes have their own layout)
+const showLayout = !['login', 'register'].includes(route.name) && !route.path.startsWith('/student')
 </script>
 
 <style scoped>

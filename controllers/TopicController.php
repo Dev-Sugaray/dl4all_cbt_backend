@@ -1,6 +1,7 @@
 <?php
 
-// require_once APP_ROOT . '/config/database.php'; // Include database connection
+require_once APP_ROOT . '/utils/ResponseHelper.php';
+require_once APP_ROOT . '/utils/PaginationHelper.php';
 
 class TopicController {
     private $pdo;
@@ -10,240 +11,291 @@ class TopicController {
     }
 
     // Handle creating a new topic
-    public function create($data) {
-        // Basic input validation
-        if (!isset($data['subject_id'], $data['topic_name'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing required fields (subject_id, topic_name).']);
+    public function create($request_data) {
+        if (!isset($request_data['topic_name'], $request_data['subject_id'])) {
+            ResponseHelper::send(400, ['error' => 'Missing required fields (topic_name, subject_id).']);
             return;
         }
 
-        $subject_id = $data['subject_id'];
-        $topic_name = $data['topic_name'];
-        $description = $data['description'] ?? null; // Description is optional
+        $topic_name = trim($request_data['topic_name']);
+        $subject_id = (int) $request_data['subject_id'];
+        $description = isset($request_data['description']) ? trim($request_data['description']) : null;
 
-        // Prepare and execute the SQL statement to insert the new topic
-        $sql = "INSERT INTO Topics (subject_id, topic_name, description) VALUES (:subject_id, :topic_name, :description)";
+        if (empty($topic_name)) {
+            ResponseHelper::send(400, ['error' => 'Topic name cannot be empty.']);
+            return;
+        }
+
+        // Check if subject_id exists
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM Subjects WHERE subject_id = :subject_id");
+        $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
+        $stmt->execute();
+        if ($stmt->fetchColumn() == 0) {
+            ResponseHelper::send(404, ['error' => 'Subject not found.']);
+            return;
+        }
+
+        $sql = "INSERT INTO Topics (topic_name, subject_id, description, is_active) VALUES (:topic_name, :subject_id, :description, TRUE)";
 
         try {
             $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
             $stmt->bindParam(':topic_name', $topic_name);
+            $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
             $stmt->bindParam(':description', $description);
 
             if ($stmt->execute()) {
-                // Topic creation successful
-                http_response_code(201); // 201 Created
-                echo json_encode(['message' => 'Topic created successfully.', 'topic_id' => $this->pdo->lastInsertId()]);
+                ResponseHelper::send(201, ['message' => 'Topic created successfully.', 'topic_id' => $this->pdo->lastInsertId()]);
             } else {
-                // Handle execution error (less likely with exceptions enabled)
-                http_response_code(500);
-                echo json_encode(['error' => 'Topic creation failed.']);
+                ResponseHelper::send(500, ['error' => 'Topic creation failed.']);
             }
         } catch (\PDOException $e) {
-            // Handle database errors (e.g., foreign key constraint or duplicate topic name for a subject)
-            // A unique index on (subject_id, topic_name) would enforce uniqueness.
-            if ($e->getCode() === '23000') { // Integrity constraint violation
-                http_response_code(409); // 409 Conflict
-                echo json_encode(['error' => 'Topic name already exists for this subject or invalid subject ID.']);
+            if ($e->getCode() === '23000') {
+                ResponseHelper::send(409, ['error' => 'Topic name already exists for this subject.']);
             } else {
-                // Log other database errors
                 error_log("Database Error during topic creation: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'An internal server error occurred.']);
+                ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
             }
         }
     }
 
-    // Handle retrieving all topics with pagination
+    // Handle getting all topics
     public function getAll($route_params = null, $request_data = null) {
         try {
-            // Get pagination parameters from request data, with defaults
             $page = isset($request_data['page']) ? (int) $request_data['page'] : 1;
             $limit = isset($request_data['limit']) ? (int) $request_data['limit'] : 10;
+            $subject_id = isset($request_data['subject_id']) ? (int) $request_data['subject_id'] : null;
+            $active_only = isset($request_data['active_only']) && $request_data['active_only'] == 'true';
 
-            // Calculate pagination data
-            $paginationData = PaginationHelper::paginate($this->pdo, 'Topics', null, [], $page, $limit);
+            $conditions = [];
+            $params = [];
 
-            // Fetch topics with LIMIT and OFFSET
-            $sql = "SELECT t.*, s.subject_name FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id LIMIT :limit OFFSET :offset";
+            if ($subject_id) {
+                $conditions[] = "t.subject_id = :subject_id";
+                $params[':subject_id'] = $subject_id;
+            }
+            if ($active_only) {
+                $conditions[] = "t.is_active = TRUE";
+            }
+
+            $whereClause = '';
+            if (!empty($conditions)) {
+                $whereClause = "WHERE " . implode(" AND ", $conditions);
+            }
+
+            $paginationData = PaginationHelper::paginate(
+                $this->pdo,
+                'Topics t JOIN Subjects s ON t.subject_id = s.subject_id',
+                null, // Let helper build count query
+                $params,
+                $page,
+                $limit,
+                $whereClause
+            );
+
+            $sql = "SELECT t.*, s.subject_name, s.subject_code FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id {$whereClause} ORDER BY t.creation_date DESC LIMIT :limit OFFSET :offset";
             $stmt = $this->pdo->prepare($sql);
             $stmt->bindParam(':limit', $paginationData['limit'], PDO::PARAM_INT);
             $stmt->bindParam(':offset', $paginationData['offset'], PDO::PARAM_INT);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
             $stmt->execute();
             $topics = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Get pagination metadata
-            $baseUrl = $_SERVER['REQUEST_URI']; // Use current request URI as base URL
+            foreach ($topics as &$topic) {
+                $topic['is_active'] = (bool)$topic['is_active'];
+            }
+            unset($topic);
+
+            $baseUrl = strtok($_SERVER['REQUEST_URI'], '?');
             $paginationMeta = PaginationHelper::getPaginationMeta($paginationData, $baseUrl);
 
-            // Combine data and metadata
             $response_data = [
                 'data' => $topics,
                 'meta' => $paginationMeta['pagination']
             ];
 
-            http_response_code(200); // OK
-            echo json_encode($response_data);
+            ResponseHelper::send(200, $response_data);
 
         } catch (PDOException $e) {
-            // Handle database errors
             error_log("Database Error during topic retrieval: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred during topic retrieval.']);
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred during topic retrieval.']);
         }
     }
 
-    // Handle retrieving a single topic by ID
+    // Handle getting a single topic by ID
     public function getById($route_params, $request_data = null) {
-        // Prepare and execute the SQL statement to retrieve a single topic by ID
-        $sql = "SELECT t.topic_id, t.subject_id, s.subject_name, t.topic_name, t.description FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id WHERE t.topic_id = :topic_id LIMIT 1";
-
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing topic ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing topic ID.']);
             return;
         }
 
-        $topicId = $route_params[0];
+        $topic_id = $route_params[0];
+
+        $sql = "SELECT t.*, s.subject_name, s.subject_code FROM Topics t JOIN Subjects s ON t.subject_id = s.subject_id WHERE t.topic_id = :topic_id LIMIT 1";
 
         try {
             $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':topic_id', $topicId, PDO::PARAM_INT);
+            $stmt->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
             $stmt->execute();
 
-            $topic = $stmt->fetch();
+            $topic = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($topic) {
-                // Return topic data
-                http_response_code(200); // OK
-                echo json_encode($topic);
+                $topic['is_active'] = (bool)$topic['is_active'];
+                ResponseHelper::send(200, $topic);
             } else {
-                // Topic not found
-                http_response_code(404); // Not Found
-                echo json_encode(['error' => 'Topic not found.']);
+                ResponseHelper::send(404, ['error' => 'Topic not found.']);
             }
-        } catch (PDOException $e) {
-            // Log database errors
+        } catch (\PDOException $e) {
             error_log("Database Error fetching topic by ID: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }
 
     // Handle updating a topic
     public function update($route_params, $request_data) {
-        // Basic input validation
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing topic ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing topic ID.']);
             return;
         }
 
-        $topicId = $route_params[0];
+        $topic_id = $route_params[0];
 
-        if (!isset($request_data['subject_id']) && !isset($request_data['topic_name']) && !isset($request_data['description'])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'No update data provided.']);
+        if (empty($request_data)) {
+            ResponseHelper::send(400, ['error' => 'No update data provided.']);
             return;
         }
 
-        $updates = [];
-        $params = [':topic_id' => $topicId];
+        $set_clauses = [];
+        $params_to_bind = [];
 
-        if (isset($request_data['subject_id'])) {
-            $updates[] = 'subject_id = :subject_id';
-            $params[':subject_id'] = $request_data['subject_id'];
-        }
         if (isset($request_data['topic_name'])) {
-            $updates[] = 'topic_name = :topic_name';
-            $params[':topic_name'] = $request_data['topic_name'];
+            $topic_name = trim($request_data['topic_name']);
+            if(empty($topic_name)){
+                ResponseHelper::send(400, ['error' => 'Topic name cannot be empty.']);
+                return;
+            }
+            $set_clauses[] = 'topic_name = :topic_name';
+            $params_to_bind[':topic_name'] = $topic_name;
         }
-        if (isset($request_data['description'])) {
-            $updates[] = 'description = :description';
-            $params[':description'] = $request_data['description'];
+        if (isset($request_data['subject_id'])) {
+            $subject_id = (int) $request_data['subject_id'];
+            // Check if subject_id exists
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM Subjects WHERE subject_id = :subject_id");
+            $stmt->bindParam(':subject_id', $subject_id, PDO::PARAM_INT);
+            $stmt->execute();
+            if ($stmt->fetchColumn() == 0) {
+                ResponseHelper::send(404, ['error' => 'Subject not found.']);
+                return;
+            }
+            $set_clauses[] = 'subject_id = :subject_id';
+            $params_to_bind[':subject_id'] = $subject_id;
+        }
+        if (array_key_exists('description', $request_data)) {
+            $set_clauses[] = 'description = :description';
+            $params_to_bind[':description'] = isset($request_data['description']) ? trim($request_data['description']) : null;
+        }
+        if (isset($request_data['is_active'])) {
+            $is_active_value = filter_var($request_data['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($is_active_value === null) {
+                ResponseHelper::send(400, ['error' => "Invalid 'is_active' value. Must be true or false."]);
+                return;
+            }
+            $set_clauses[] = 'is_active = :is_active';
+            $params_to_bind[':is_active'] = $is_active_value;
         }
 
-        if (empty($updates)) {
-             http_response_code(400);
-             echo json_encode(['error' => 'No valid fields to update.']);
+        if (empty($set_clauses)) {
+             ResponseHelper::send(400, ['error' => 'No valid fields provided for update.']);
              return;
         }
 
-        $sql = "UPDATE Topics SET " . implode(', ', $updates) . " WHERE topic_id = :topic_id";
+        $sql = "UPDATE Topics SET " . implode(', ', $set_clauses) . " WHERE topic_id = :topic_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
 
-            foreach ($params as $key => $value) {
-                $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            foreach ($params_to_bind as $key => &$value) {
+                $param_type = PDO::PARAM_STR;
+                if (is_int($value)) $param_type = PDO::PARAM_INT;
+                else if (is_bool($value)) $param_type = PDO::PARAM_BOOL;
+                else if (is_null($value)) $param_type = PDO::PARAM_NULL;
+                $stmt->bindParam($key, $value, $param_type);
             }
+            unset($value);
+
+            $stmt->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
-                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK
-                    echo json_encode(['message' => 'Topic updated successfully.']);
+                    ResponseHelper::send(200, ['message' => 'Topic updated successfully.']);
                 } else {
-                    http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Topic not found or no changes made.']);
+                    $checkStmt = $this->pdo->prepare("SELECT 1 FROM Topics WHERE topic_id = :topic_id");
+                    $checkStmt->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
+                    $checkStmt->execute();
+                    if ($checkStmt->fetch()) {
+                        ResponseHelper::send(200, ['message' => 'No changes made to the topic.']);
+                    } else {
+                        ResponseHelper::send(404, ['error' => 'Topic not found.']);
+                    }
                 }
             } else {
-                // Handle execution error
-                http_response_code(500);
-                echo json_encode(['error' => 'Topic update failed.']);
+                ResponseHelper::send(500, ['error' => 'Topic update failed.']);
             }
-        } catch (PDOException $e) {
-            // Handle database errors (e.g., foreign key constraint or duplicate topic name for a subject)
-            if ($e->getCode() === '23000') { // Integrity constraint violation
-                http_response_code(409); // 409 Conflict
-                echo json_encode(['error' => 'Topic name already exists for this subject or invalid subject ID.']);
-            } else {
-                // Log other database errors
-                error_log("Database Error during topic update: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(['error' => 'An internal server error occurred.']);
-            }
-        }
-    }
+        } catch (\PDOException $e) {
+             if ($e->getCode() === '23000') {
+                 ResponseHelper::send(409, ['error' => 'Topic name already exists for this subject.']);
+             } else {
+                 error_log("Database Error during topic update: " . $e->getMessage());
+                 ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
+             }
+         }
+     }
 
-    // Handle deleting a topic
+    // Soft delete a topic
     public function delete($route_params, $request_data = null) {
-        // Basic input validation
         if (!isset($route_params[0])) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Missing topic ID.']);
+            ResponseHelper::send(400, ['error' => 'Missing topic ID.']);
             return;
         }
 
-        $topicId = $route_params[0];
+        $topic_id = $route_params[0];
 
-        // Prepare and execute the SQL statement to delete the topic
-        $sql = "DELETE FROM Topics WHERE topic_id = :topic_id";
+        $currentStatusSql = "SELECT is_active FROM Topics WHERE topic_id = :topic_id";
+        $statusStmt = $this->pdo->prepare($currentStatusSql);
+        $statusStmt->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
+        $statusStmt->execute();
+        $topicStatus = $statusStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$topicStatus) {
+            ResponseHelper::send(404, ['error' => 'Topic not found.']);
+            return;
+        }
+
+        if ($topicStatus['is_active'] == 0) {
+            ResponseHelper::send(200, ['message' => 'Topic was already disabled.']);
+            return;
+        }
+
+        $sql = "UPDATE Topics SET is_active = FALSE WHERE topic_id = :topic_id";
 
         try {
             $stmt = $this->pdo->prepare($sql);
-            $stmt->bindParam(':topic_id', $topicId, PDO::PARAM_INT);
+            $stmt->bindParam(':topic_id', $topic_id, PDO::PARAM_INT);
 
             if ($stmt->execute()) {
-                // Check if any rows were affected
                 if ($stmt->rowCount() > 0) {
-                    http_response_code(200); // OK or 204 No Content
-                    echo json_encode(['message' => 'Topic deleted successfully.']);
+                    ResponseHelper::send(200, ['message' => 'Topic disabled (soft-deleted) successfully.']);
                 } else {
-                    http_response_code(404); // Not Found
-                    echo json_encode(['error' => 'Topic not found.']);
+                    ResponseHelper::send(404, ['error' => 'Topic found but could not be disabled.']);
                 }
             } else {
-                // Handle execution error
-                http_response_code(500);
-                echo json_encode(['error' => 'Topic deletion failed.']);
+                ResponseHelper::send(500, ['error' => 'Topic disabling (soft-deletion) failed.']);
             }
-        } catch (PDOException $e) {
-            // Log database errors
-            error_log("Database Error during topic deletion: " . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'An internal server error occurred.']);
+        } catch (\PDOException $e) {
+            error_log("Database Error during topic soft-deletion: " . $e->getMessage());
+            ResponseHelper::send(500, ['error' => 'An internal server error occurred.']);
         }
     }
 }

@@ -25,7 +25,11 @@ class PaginationHelper {
         if ($countQuery === null) {
             $countQuery = "SELECT COUNT(*) FROM {$table}";
             if (!empty($whereClause)) {
-                $countQuery .= " WHERE {$whereClause}";
+                if (stripos(trim($whereClause), 'WHERE') === 0) {
+                    $countQuery .= " {$whereClause}";
+                } else {
+                    $countQuery .= " WHERE {$whereClause}";
+                }
             }
         }
         

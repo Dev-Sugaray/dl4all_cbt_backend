@@ -1,0 +1,4 @@
+question_text,correct_answer,option_A,option_B,option_C,option_D,explanation,difficulty_level
+"What is the capital of France?",A,"Paris","London","Berlin","Rome","Paris is the capital of France.","Easy"
+"Who painted the Mona Lisa?",B,"Vincent van Gogh","Leonardo da Vinci","Pablo Picasso","Claude Monet",,"Medium"
+"Which planet is known as the Red Planet?",C,"Earth","Venus","Mars","Jupiter","Mars is often called the Red Planet.","Easy"

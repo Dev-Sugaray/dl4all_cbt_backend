@@ -63,11 +63,13 @@ const handleLogin = async () => {
   loading.value = true;
   errorMessage.value = '';
   try {
-    const success = await authStore.login({ email: email.value, password: password.value });
+    const { success, user } = await authStore.login({ email: email.value, password: password.value });
     if (success) {
-      // Attempt to initialize auth state by fetching user, then redirect
-      await authStore.initAuth(); // Ensure user profile is loaded after login
-      router.push('/profile'); // Or to a dashboard, or a route from query param
+      if (user.user_role === 'student') {
+        router.push('/student/dashboard');
+      } else {
+        router.push('/profile');
+      }
     }
   } catch (error) {
     errorMessage.value = error.message || 'An unexpected error occurred.';
