@@ -1,9 +1,8 @@
 <template>
-  <AppLayout />
+  <router-view />
 </template>
 
 <script setup>
-import AppLayout from './components/AppLayout.vue'
 import { useRouter } from 'vue-router'
 const router = useRouter()
 router.replace({ name: 'login' })

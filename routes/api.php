@@ -6,6 +6,11 @@ header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Allow-Credentials: true');
 
+// Disable caching for development/debugging
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
+
 // Handle preflight OPTIONS request globally
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -49,6 +54,8 @@ if ($base_path !== '/' && strpos($request_path, $base_path) === 0) {
 $request_path = trim($request_path, '/');
 $request_method = $_SERVER['REQUEST_METHOD'];
 
+error_log('API: Request Method: ' . $request_method . ', Path: ' . $request_path);
+
 // Define routes
 $routes = [
     'GET api/v1/test' => ['controller' => null, 'method' => null, 'action' => function() { // Example route
@@ -68,6 +75,7 @@ $routes = [
 
     // Exam routes
     'POST api/v1/exams' => ['controller' => 'ExamController', 'method' => 'create'],
+    'GET api/v1/exams/available-for-student' => ['controller' => 'ExamController', 'method' => 'getAvailableExamsForStudent', 'middleware' => ['AuthMiddleware']],
     'GET api/v1/exams' => ['controller' => 'ExamController', 'method' => 'getAll'],
     'GET api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'getById'],
     'PUT api/v1/exams/{id}' => ['controller' => 'ExamController', 'method' => 'update'],
@@ -151,50 +159,58 @@ if ($matched_route) {
             $middlewareFile = APP_ROOT . '/middleware/' . $middlewareName . '.php';
             if (file_exists($middlewareFile)) {
                 require_once $middlewareFile;
-                $middleware = new $middlewareName($pdo); // Pass PDO if needed
-                // Middleware should call next() or terminate the request
-                // For simplicity, assuming middleware has a handle method
-                $middleware->handle(function() use ($matched_route, $route_params, $request_method, $pdo) {
-                    // This is the 'next' function that executes the controller action
-                    // Parse request data based on method
-                    $request_data = null;
-                    if ($request_method === 'POST' || $request_method === 'PUT') {
-                        $request_data = json_decode(file_get_contents('php://input'), true);
-                    } elseif ($request_method === 'GET') {
-                        // Parse query parameters for GET requests
-                        $request_data = $_GET;
-                    }
+                // Call the static handle method and get the user data
+                $middlewareUserData = $middlewareName::handle();
 
-                    if (isset($matched_route['action'])) {
-                        // Execute closure action
-                        $action = $matched_route['action'];
-                        $action();
-                    } elseif (isset($matched_route['controller'], $matched_route['method'])) {
-                        // Execute controller method
-                        $controllerName = $matched_route['controller'];
-                        $methodName = $matched_route['method'];
+                // Parse request data based on method
+                $request_data = null;
+                if ($request_method === 'POST' || $request_method === 'PUT') {
+                    $request_data = json_decode(file_get_contents('php://input'), true);
+                } elseif ($request_method === 'GET') {
+                    // Parse query parameters for GET requests
+                    $request_data = $_GET;
+                }
 
-                        // Assuming controller classes are in the controllers directory
-                        $controllerFile = APP_ROOT . '/controllers/' . $controllerName . '.php';
-                        if (file_exists($controllerFile)) {
-                            // require_once $controllerFile; // Already included at the top
-                            $controller = new $controllerName($pdo); // Pass PDO to controller constructor
+                // Merge middleware user data into request_data
+                if (is_array($middlewareUserData)) {
+                    $request_data = array_merge($request_data ?? [], $middlewareUserData);
+                }
 
-                            if (method_exists($controller, $methodName)) {
-                                // Pass route parameters and request data to the controller method
-                                $controller->$methodName($route_params, $request_data);
+                if (isset($matched_route['action'])) {
+                    // Execute closure action
+                    $action = $matched_route['action'];
+                    $action();
+                } elseif (isset($matched_route['controller'], $matched_route['method'])) {
+                    // Execute controller method
+                    $controllerName = $matched_route['controller'];
+                    $methodName = $matched_route['method'];
+
+                    $controllerFile = APP_ROOT . '/controllers/' . $controllerName . '.php';
+                    if (file_exists($controllerFile)) {
+                        $controller = new $controllerName($pdo);
+
+                        if (method_exists($controller, $methodName)) {
+                            // Special handling for methods that only expect request_data (e.g., create, register, login)
+                            if (
+                                ($controllerName === 'UserController' && in_array($methodName, ['register', 'login'])) ||
+                                ($controllerName === 'ExamController' && $methodName === 'create') ||
+                                ($controllerName === 'SubjectController' && $methodName === 'create') ||
+                                ($controllerName === 'ExamSubjectController' && $methodName === 'create') ||
+                                ($controllerName === 'QuestionController' && in_array($methodName, ['create', 'uploadCsv']))
+                            ) {
+                                $controller->$methodName($request_data);
                             } else {
-                                // Method not found in controller
-                                ResponseHelper::send(500, ['error' => 'Controller method not found.']);
+                                // Pass route parameters and request data to other controller methods
+                                $controller->$methodName($route_params, $request_data);
                             }
                         } else {
-                            // Controller file not found
-                            ResponseHelper::send(500, ['error' => 'Controller file not found.']);
+                            ResponseHelper::send(500, ['error' => 'Controller method not found.']);
                         }
+                    } else {
+                        ResponseHelper::send(500, ['error' => 'Controller file not found.']);
                     }
-                });
+                }
             } else {
-                // Middleware file not found
                 ResponseHelper::send(500, ['error' => 'Middleware file not found: ' . $middlewareName]);
             }
         }

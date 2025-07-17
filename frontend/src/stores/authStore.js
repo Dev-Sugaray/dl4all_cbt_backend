@@ -37,7 +37,10 @@ export const useAuthStore = defineStore('auth', {
 
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-        return { success: true, user };
+        // Fetch full user profile immediately after successful login
+        await this.fetchUser();
+
+        return { success: true, user: this.user };
       } catch (error) {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Login failed';
         this.setError(errorMessage);

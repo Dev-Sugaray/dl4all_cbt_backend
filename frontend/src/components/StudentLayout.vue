@@ -8,7 +8,7 @@
           </div>
           <div class="col-6 text-end">
             <span class="user-info" v-if="authStore.user">
-              Welcome, {{ authStore.user.name || authStore.user.username }}
+              Welcome, {{ authStore.user.full_name || authStore.user.email || authStore.user.user_id }}
             </span>
           </div>
         </div>

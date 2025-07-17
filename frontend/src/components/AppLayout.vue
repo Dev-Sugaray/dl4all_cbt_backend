@@ -1,97 +1,109 @@
 <template>
   <div class="app-layout">
-    <header v-if="showLayout" class="app-header">
-      <!-- Header content will go here -->
-      <h1>ExamFlow</h1>
+    <header class="app-header">
+      <div class="container-fluid">
+        <div class="row align-items-center">
+          <div class="col-6">
+            <h1 class="header-title">ExamFlow - Admin Portal</h1>
+          </div>
+          <div class="col-6 text-end">
+            <span class="user-info" v-if="authStore.user">
+              Welcome, {{ authStore.user.full_name || authStore.user.email || authStore.user.user_id }}
+            </span>
+          </div>
+        </div>
+      </div>
     </header>
 
-    <aside v-if="showLayout" class="app-sidebar">
-      <!-- Sidebar content will go here -->
-      <nav>
-        <ul>
-          <li><router-link to="/">Home</router-link></li>
-          <li><router-link to="/manage-exams">Manage Exams</router-link></li>
-          <li><router-link to="/manage-subjects">Manage Subjects</router-link></li>
-          <li><router-link to="/manage-topics">Manage Topics</router-link></li>
-          <li><router-link to="/manage-questions">Manage Questions</router-link></li>
-          <!-- Other navigation links will be added later -->
-        </ul>
-      </nav>
-    </aside>
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <AdminNavigation />
+      </aside>
 
-    <main class="main-content">
-      <!-- The router-view will render the current route's component here -->
-      <router-view></router-view>
-    </main>
-
-    <footer v-if="showLayout" class="app-footer">
-      <!-- Footer content will go here -->
-      <p>&copy; 2024 ExamFlow</p>
-    </footer>
+      <main class="app-main">
+        <router-view />
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
-const route = useRoute()
-// Hide layout for login/register and student routes (student routes have their own layout)
-const showLayout = !['login', 'register'].includes(route.name) && !route.path.startsWith('/student')
+import { useAuthStore } from '@/stores/authStore'
+import AdminNavigation from './AdminNavigation.vue'
+
+const authStore = useAuthStore()
 </script>
 
 <style scoped>
 .app-layout {
-  display: grid;
-  grid-template-areas:
-    "header header"
-    "sidebar main"
-    "footer footer";
-  grid-template-rows: auto 1fr auto;
-  grid-template-columns: 200px 1fr; /* Sidebar width and main content */
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
 .app-header {
-  grid-area: header;
-  background-color: #f0f0f0;
-  padding: 1rem;
-  border-bottom: 1px solid #ccc;
+  background-color: #007bff;
+  color: white;
+  padding: 1rem 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.app-sidebar {
-  grid-area: sidebar;
-  background-color: #e9e9e9;
-  padding: 1rem;
-  border-right: 1px solid #ccc;
-}
-
-.app-sidebar ul {
-  list-style: none;
-  padding: 0;
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 600;
   margin: 0;
 }
 
-.app-sidebar li a {
-  display: block;
-  padding: 0.5rem 0;
-  text-decoration: none;
-  color: #333;
+.user-info {
+  font-size: 0.9rem;
+  opacity: 0.9;
 }
 
-.app-sidebar li a:hover {
-  color: #007bff;
+.app-body {
+  display: flex;
+  flex: 1;
 }
 
-.main-content {
-  grid-area: main;
-  padding: 1rem;
-  overflow-y: auto; /* Allows scrolling for content longer than the viewport */
+.app-sidebar {
+  width: 250px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #dee2e6;
 }
 
-.app-footer {
-  grid-area: footer;
-  background-color: #f0f0f0;
-  padding: 1rem;
-  text-align: center;
-  border-top: 1px solid #ccc;
+.app-main {
+  flex: 1;
+  padding: 2rem;
+  background-color: #ffffff;
+  overflow-y: auto;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .app-sidebar {
+    width: 200px;
+  }
+  
+  .app-main {
+    padding: 1rem;
+  }
+  
+  .header-title {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .app-body {
+    flex-direction: column;
+  }
+  
+  .app-sidebar {
+    width: 100%;
+    order: 2;
+  }
+  
+  .app-main {
+    order: 1;
+  }
 }
 </style>
