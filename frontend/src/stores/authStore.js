@@ -50,6 +50,31 @@ export const useAuthStore = defineStore('auth', {
         this.setLoading(false);
       }
     },
+    async register(userData) {
+      this.setLoading(true);
+      this.clearError();
+      try {
+        const response = await axios.post(`${API_BASE_URL}/users/register`, userData);
+        // Assuming registration might directly log in the user or return a success message
+        // Adjust based on your backend's registration response
+        if (response.data.token && response.data.user) {
+          this.token = response.data.token;
+          this.user = response.data.user;
+          this.isAuthenticated = true;
+          localStorage.setItem('token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+          await this.fetchUser(); // Fetch full profile after registration/login
+        }
+        return { success: true, message: response.data.message || 'Registration successful' };
+      } catch (error) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Registration failed';
+        this.setError(errorMessage);
+        throw new Error(errorMessage);
+      } finally {
+        this.setLoading(false);
+      }
+    },
     logout() {
       this.token = null;
       this.user = null;
