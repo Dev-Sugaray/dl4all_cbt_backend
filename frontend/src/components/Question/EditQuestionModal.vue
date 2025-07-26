@@ -224,22 +224,28 @@ const fetchDependencies = async () => {
   }
 };
 
-// Watch for changes in exam_subject_id to filter topics (optional, but good UX)
-watch(() => editableQuestion.exam_subject_id, async (newVal) => {
-  if (newVal) {
+// Watch for changes in exam_subject_id to filter topics
+watch(() => editableQuestion.exam_subject_id, async (newExamSubjectId) => {
+  // Find the selected exam subject from the fetched list
+  const selectedExamSubject = examSubjects.value.find(es => es.exam_subject_id === newExamSubjectId);
+
+  if (selectedExamSubject && selectedExamSubject.subject_id) {
     try {
-      const response = await getTopics(1, 100, newVal, true); // Filter topics by selected exam_subject_id
+      // Fetch topics using the correct subject_id
+      const response = await getTopics(1, 100, selectedExamSubject.subject_id, true);
       if (response && response.data && Array.isArray(response.data.data)) {
         topics.value = response.data.data;
+      } else {
+        topics.value = []; // Clear topics if no topics are found for the subject
       }
     } catch (err) {
-      console.error('Error fetching topics for selected exam subject:', err);
-      // Optionally, display an error message
+      console.error('Error fetching topics for the selected subject:', err);
+      errors.general = 'Failed to load topics for the selected subject.';
     }
   } else {
     topics.value = []; // Clear topics if no exam subject is selected
-    editableQuestion.topic_id = null; // Reset topic selection
   }
+  // Do not reset topic_id here, as it might be loaded from the question prop
 });
 
 const addOption = () => {

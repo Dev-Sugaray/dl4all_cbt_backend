@@ -235,7 +235,7 @@ const csvFormatInstructionsHtml = ref(`
 <h3>Column Descriptions</h3>
 <ul>
 <li><strong><code>question_text</code></strong> (Required, String): The full text of the question.</li>
-<li><strong><code>correct_answer</code></strong> (Required, String): The letter corresponding to the correct option (e.g., "A", "B", "C", "D"). This must match one of the <code>option_</code> letters provided.</li>
+<li><strong><code>correct_answer</code></strong> (Required, String): The letter corresponding to the correct option (e.g., "A", "B", "C", "D"). This must match one of the <code>option_</code> columns provided.</li>
 <li><strong><code>option_A</code></strong> (Required, String): The text for option A.</li>
 <li><strong><code>option_B</code></strong> (Required, String): The text for option B.</li>
 <li><strong><code>option_C</code></strong> (Required, String): The text for option C.</li>
@@ -281,25 +281,23 @@ const fetchTopics = async (subjectId = null) => {
       topics.value = response.data.data;
     } else {
       console.error('Fetch topics error: Unexpected response structure', response);
+      topics.value = [];
     }
   } catch (err) {
     console.error('Fetch topics error:', err);
+    topics.value = [];
   }
 };
 
 // Watch for changes in selectedExamSubjectId to filter topics
 watch(selectedExamSubjectId, (newVal) => {
+  topics.value = [];
+  selectedTopicId.value = null;
   if (newVal) {
     const selectedExamSubject = examSubjects.value.find(es => es.exam_subject_id === newVal);
     if (selectedExamSubject) {
       fetchTopics(selectedExamSubject.subject_id);
-    } else {
-      topics.value = [];
-      selectedTopicId.value = null;
     }
-  } else {
-    topics.value = [];
-    selectedTopicId.value = null;
   }
 });
 
@@ -308,6 +306,9 @@ const toggleBulkUploadSection = () => {
   showBulkUpload.value = !showBulkUpload.value;
   if (showBulkUpload.value) {
     fetchExamSubjects();
+    // Reset topics when toggling, in case a different subject is chosen
+    topics.value = [];
+    selectedTopicId.value = null;
   }
 };
 
@@ -345,7 +346,7 @@ const uploadCsv = async () => {
     }
 
     const response = await uploadQuestionsCsv(formData);
-    uploadMessage.value = response.message || 'Questions uploaded successfully!';
+    uploadMessage.value = response.data.message || 'Questions uploaded successfully!';
     uploadError.value = false;
     selectedFile.value = null; // Clear selected file
     document.getElementById('csvFile').value = ''; // Clear file input
@@ -369,12 +370,56 @@ const closeAddForm = () => {
   showAddForm.value = false;
 };
 
+// Handle Question Added
+const handleQuestionAdded = () => {
+  showAddForm.value = false;
+  fetchQuestions(); // Refresh the list
+};
+
+// Open Edit Question Modal
+const openEditModal = (question) => {
+  questionToEdit.value = { ...question };
+  showEditModal.value = true;
+};
+
+// Close Edit Question Modal
+const closeEditModal = () => {
+  showEditModal.value = false;
+  questionToEdit.value = null;
+};
+
+// Handle Question Updated
+const handleQuestionUpdated = () => {
+  closeEditModal();
+  fetchQuestions(); // Refresh the list
+};
+
+// Open Confirm Toggle Status Modal
+const openConfirmToggleModal = (question) => {
+  questionToToggleStatus.value = question;
+  showConfirmToggleModal.value = true;
+};
+
+// Close Confirm Toggle Status Modal
+const closeConfirmToggleModal = () => {
+  showConfirmToggleModal.value = false;
+  questionToToggleStatus.value = null;
+};
+
+// Handle Status Changed
+const handleStatusChanged = () => {
+  closeConfirmToggleModal();
+  fetchQuestions(); // Refresh the list
+};
+
 // On component mount, fetch questions
 onMounted(() => {
   fetchQuestions();
+  fetchExamSubjects(); // Also fetch exam subjects on mount for the dropdown
 });
 
-
+// Watch for page changes
+watch(currentPage, fetchQuestions);
 </script>
 
 <style scoped>
