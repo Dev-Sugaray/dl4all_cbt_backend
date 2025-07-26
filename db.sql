@@ -91,6 +91,8 @@ CREATE TABLE `Topics` (
   `subject_id` INT,
   `topic_name` VARCHAR(255) NOT NULL,
   `description` TEXT NULL,
+  `is_active` BOOLEAN DEFAULT 1,
+  `creation_date` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`subject_id`) REFERENCES `Subjects` (`subject_id`)
 );
 
